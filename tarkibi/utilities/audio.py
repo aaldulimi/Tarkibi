@@ -45,14 +45,50 @@ def most_common_audio(audio_directory: str) -> dict:
     return audio_groups
 
 def speaker_recognition(audio_directory: str, reference_audio: str):
+    FAILED_THRESHOLD = 20
+    PASSED_THRESHOLD = 10
+
     speaker_model = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained("nvidia/speakerverification_en_titanet_large")
     audio_files = get_audio_files(audio_directory)
 
+    speaker_performance = {}
     similar_clips = []
     for audio_file in audio_files:
+        audio_id = audio_file.split('/')[-2]
+        speaker_id = audio_id + '_' + audio_file.split('/')[-1].split('_')[0]
+
+        # if failed > FAILED_THRESHOLD, then skip speaker
+        if (speaker_id in speaker_performance) and (speaker_performance[speaker_id]['failed'] >= FAILED_THRESHOLD):
+            continue
+        
+        # if passed > PASSED_THRESHOLD, then no need for further verification 
+        if (speaker_id in speaker_performance) and (speaker_performance[speaker_id]['passed'] >= PASSED_THRESHOLD):
+            similar_clips.append(audio_file)
+            continue
+            
         is_similar = speaker_model.verify_speakers(reference_audio, audio_file)
         if is_similar:
             similar_clips.append(audio_file)
+
+            if speaker_id not in speaker_performance:
+                speaker_performance[speaker_id] = {
+                    'passed': 1,
+                    'failed': 0
+                }
+            else:
+                old_pass = speaker_performance[speaker_id]['passed']
+                speaker_performance[speaker_id]['passed'] = old_pass + 1
+
+        else:
+            # not similar, i.e. different speaker
+            if speaker_id not in speaker_performance:
+                speaker_performance[speaker_id] = {
+                    'passed': 0,
+                    'failed': 1
+                }
+            else:
+                old_fail = speaker_performance[speaker_id]['failed']
+                speaker_performance[speaker_id]['failed'] = old_fail + 1
 
     audio_groups = {}
     for result in similar_clips:
