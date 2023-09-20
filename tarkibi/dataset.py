@@ -78,7 +78,7 @@ def process_video(video_id: str, debug_mode: bool = False):
     if not debug_mode: tarkibi.utilities.general.light_clean(video_id)
      
      
-def build_dataset(author: str, target_length: timedelta, output_path: str = 'dataset', sample_rate: int = 24000):
+def build_dataset(author: str, reference_audio: str, target_length: timedelta, output_path: str = 'dataset', sample_rate: int = 24000):
     tarkibi.utilities.general.make_directories()
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -92,7 +92,8 @@ def build_dataset(author: str, target_length: timedelta, output_path: str = 'dat
         process_video(video_id)
 
     i = 0
-    audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}')
+    audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
+    
     for ag, clips in audio_groups.items():
         concat_file = f'{BASE_DIR}/{AUDIO_SPECS}/{ag}_concat.txt'
         with open(concat_file, 'w') as f:
