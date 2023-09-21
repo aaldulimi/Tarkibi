@@ -13,19 +13,60 @@ AUDIO_SPECS = tarkibi.utilities.general.AUDIO_SPECS
 AUDIO_FINAL = tarkibi.utilities.general.AUDIO_FINAL
 BASE_DIR = tarkibi.utilities.general.BASE_DIR
 
-
-# restructure project
-
 class Tarkibi:
+    _AUDIO_RAW_PATH = f'{BASE_DIR}/{AUDIO_RAW}'
     def __init__(self):
-        pass
+        self._noise_reduction = _NoiseReduction()
+        self._diarization = _Diarization()
 
-    def build_dataset(self):
-        pass
+    def _process_video(self, video_id: str, debug_mode: bool = False):
+        tarkibi.utilities.youtube.download_video(video_id, output_path=self._AUDIO_RAW_PATH)
+    
+        nr_output_path = self._noise_reduction._noise_reduction(f'{self._AUDIO_RAW_PATH}/{video_id}.wav')
+        _ = self._diarization._diarize_audio(f'{nr_output_path}/{video_id}/vocals.wav', video_id)
 
-    def process_video(self):
-        pass
+        if not debug_mode:
+            os.remove(f'{self._AUDIO_RAW_PATH}/{video_id}.wav')
+            shutil.rmtree(f'{nr_output_path}/{video_id}')
 
+    def build_dataset(self, author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', sample_rate: int = 24000,
+                    _offset: int | None = 0, _clips_used: list | None = None):
+        tarkibi.utilities.general.make_directories()
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+
+        search_query = tarkibi.utilities.agent.generate_search_query(author)
+        videos = tarkibi.utilities.youtube.youtube_search(search_query)
+
+        if _clips_used:
+            videos = [video for video in videos if video['id'] not in _clips_used]
+        else: _clips_used = []
+
+        closest_combination = tarkibi.utilities.general.find_closest_combination(videos, target_duration)
+        for video in closest_combination:
+            video_id = video['id']
+            _clips_used.append(video_id)
+            self._process_video(video_id)
+        
+        audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
+
+        for ag, clips in audio_groups.items():
+            concat_file = f'{BASE_DIR}/{AUDIO_SPECS}/{ag}_concat.txt'
+            with open(concat_file, 'w') as f:
+                for clip in clips:
+                    clip = os.path.join(*clip.split('/')[1:])
+                    f.write(f'file ../{clip}\n')
+                
+            subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -c copy {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav', shell=True)
+            subprocess.run(f'ffmpeg -i {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav -ar {str(sample_rate)} {output_path}/{_offset}.wav', shell=True)
+            shutil.rmtree(f'{BASE_DIR}/{AUDIO_CLIPS}/{ag}')
+            _offset += 1
+        
+        remaining_duration = target_duration.total_seconds() - tarkibi.utilities.general.total_duration(output_path)
+        if remaining_duration > (0.2 * target_duration.total_seconds()):
+            self.build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate, _offset, _clips_used)
+        
+        tarkibi.utilities.general.deep_clean()
 
 class _NoiseReduction:
     _NR_OUTPUT_PATH = f'{BASE_DIR}/{AUDIO_NN}'
@@ -33,8 +74,11 @@ class _NoiseReduction:
     def __init__(self):
         pass
         
-    def _noise_reduction(self, file_path: str = None) -> None:
+    def _noise_reduction(self, file_path: str = None) -> str:
         subprocess.run(f'spleeter separate -o {self._NR_OUTPUT_PATH} {file_path}', shell=True)
+
+        return self._NR_OUTPUT_PATH
+
 
 class _Diarization:
     _AUDIO_CLIPS_PATH = f'{BASE_DIR}/{AUDIO_CLIPS}'
@@ -102,60 +146,51 @@ class _Diarization:
 
                 i += 1
     
-    def _diarize_audio(self, file_path: str, audio_id: str) -> None:
+    def _diarize_audio(self, file_path: str, audio_id: str) -> str:
         segments = self._diarize_audio_to_segments(file_path)
         speakers = self._group_segments_by_speaker(segments)
         self._segment_audio_clips(speakers, file_path, audio_id)
 
-    
-# def process_video(video_id: str, debug_mode: bool = False):
-#     try:
-#         tarkibi.utilities.youtube.download_video(video_id, output_path=f'{BASE_DIR}/{AUDIO_RAW}')
-#     except:
-#         return
-    
-#     noise_reduction(f'{BASE_DIR}/{AUDIO_RAW}/{video_id}.wav')
-#     diarize_audio(f'{BASE_DIR}/{AUDIO_NN}/{video_id}/vocals.wav', video_id)
-    
-#     if not debug_mode: tarkibi.utilities.general.light_clean(video_id)
-     
-     
-def build_dataset(author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', sample_rate: int = 24000,
-                  _offset: int | None = 0, _clips_used: list | None = None):
-    tarkibi.utilities.general.make_directories()
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
+        return self._AUDIO_CLIPS_PATH
 
-    search_query = tarkibi.utilities.agent.generate_search_query(author)
-    videos = tarkibi.utilities.youtube.youtube_search(search_query)
 
-    if _clips_used:
-        videos = [video for video in videos if video['id'] not in _clips_used]
-    else: _clips_used = []
+     
+# def build_dataset(author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', sample_rate: int = 24000,
+#                   _offset: int | None = 0, _clips_used: list | None = None):
+#     tarkibi.utilities.general.make_directories()
+#     if not os.path.exists(output_path):
+#         os.mkdir(output_path)
+
+#     search_query = tarkibi.utilities.agent.generate_search_query(author)
+#     videos = tarkibi.utilities.youtube.youtube_search(search_query)
+
+#     if _clips_used:
+#         videos = [video for video in videos if video['id'] not in _clips_used]
+#     else: _clips_used = []
     
-    closest_combination = tarkibi.utilities.general.find_closest_combination(videos, target_duration)
-    for video in closest_combination:
-        video_id = video['id']
-        _clips_used.append(video_id)
-        process_video(video_id)
+#     closest_combination = tarkibi.utilities.general.find_closest_combination(videos, target_duration)
+#     for video in closest_combination:
+#         video_id = video['id']
+#         _clips_used.append(video_id)
+#         process_video(video_id)
     
-    audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
+#     audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
     
-    for ag, clips in audio_groups.items():
-        concat_file = f'{BASE_DIR}/{AUDIO_SPECS}/{ag}_concat.txt'
-        with open(concat_file, 'w') as f:
-            for clip in clips:
-                clip = os.path.join(*clip.split('/')[1:])
-                f.write(f'file ../{clip}\n')
+#     for ag, clips in audio_groups.items():
+#         concat_file = f'{BASE_DIR}/{AUDIO_SPECS}/{ag}_concat.txt'
+#         with open(concat_file, 'w') as f:
+#             for clip in clips:
+#                 clip = os.path.join(*clip.split('/')[1:])
+#                 f.write(f'file ../{clip}\n')
             
-        subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -c copy {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav', shell=True)
-        subprocess.run(f'ffmpeg -i {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav -ar {str(sample_rate)} {output_path}/{_offset}.wav', shell=True)
-        shutil.rmtree(f'{BASE_DIR}/{AUDIO_CLIPS}/{ag}')
-        _offset += 1
+#         subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -c copy {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav', shell=True)
+#         subprocess.run(f'ffmpeg -i {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav -ar {str(sample_rate)} {output_path}/{_offset}.wav', shell=True)
+#         shutil.rmtree(f'{BASE_DIR}/{AUDIO_CLIPS}/{ag}')
+#         _offset += 1
 
-    remaining_duration = target_duration.total_seconds() - tarkibi.utilities.general.total_duration(output_path)
-    if remaining_duration > (0.2 * target_duration.total_seconds()):
-        build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate, _offset, _clips_used)
+#     remaining_duration = target_duration.total_seconds() - tarkibi.utilities.general.total_duration(output_path)
+#     if remaining_duration > (0.2 * target_duration.total_seconds()):
+#         build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate, _offset, _clips_used)
 
-    tarkibi.utilities.general.deep_clean()
+#     tarkibi.utilities.general.deep_clean()
     
