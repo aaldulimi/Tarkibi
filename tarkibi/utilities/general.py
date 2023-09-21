@@ -2,6 +2,7 @@ import itertools
 from datetime import timedelta
 import os
 import shutil
+import wave
 
 BASE_DIR = '.tarkibi'
 AUDIO_RAW = 'audio_raw'
@@ -12,14 +13,13 @@ AUDIO_CLIPS = 'audio_clips'
 AUDIO_FINAL =  'audio_final'
 
 def make_directories() -> None:
-    base_dir = '.tarkibi'
     subdirectories = [AUDIO_FINAL, AUDIO_CLIPS, DOWNLOADS, AUDIO_RAW, AUDIO_SPECS, AUDIO_NN]
 
-    if not os.path.exists(base_dir):
-        os.mkdir(base_dir)
+    if not os.path.exists(BASE_DIR):
+        os.mkdir(BASE_DIR)
 
     for directory in subdirectories:
-        subdir_path = os.path.join(base_dir, directory)
+        subdir_path = os.path.join(BASE_DIR, directory)
         if not os.path.exists(subdir_path):
             os.mkdir(subdir_path)
 
@@ -39,8 +39,9 @@ def convert_time_to_minutes(time_str: str) -> float:
     
 
 def find_closest_combination(clips: dict, target_duration: timedelta) -> tuple | list:
-    target_minutes = target_duration.total_seconds() / 60
+    DURATION_MULTIPLIER = 1.2
 
+    target_minutes = (target_duration.total_seconds() / 60) * DURATION_MULTIPLIER
     clips.sort(key=lambda x: convert_time_to_minutes(x['length']))
 
     closest_combination = []
@@ -56,6 +57,17 @@ def find_closest_combination(clips: dict, target_duration: timedelta) -> tuple |
 
     return closest_combination
 
+def total_duration(audio_directory: str) -> float:
+    total_duration = 0
+    for filename in os.listdir(audio_directory):
+        if filename.endswith(".wav"):
+            wav_file_path = os.path.join(audio_directory, filename)
+            with wave.open(wav_file_path, 'rb') as wav_file:
+                duration = wav_file.getnframes() / float(wav_file.getframerate())
+                total_duration += duration
+
+    return total_duration
+
 def format_time(seconds) -> str:
     return str(timedelta(seconds=seconds))
 
@@ -65,4 +77,4 @@ def light_clean(audio_id: str) -> None:
     os.remove(f'{BASE_DIR}/{DOWNLOADS}/{audio_id}.mp4')
 
 def deep_clean() -> None:
-    shutil.rmtree(BASE_DIR)
+    shutil.rmtree(BASE_DIR, ignore_errors=True)

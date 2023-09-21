@@ -41,7 +41,10 @@ def youtube_search(query: str):
         'id': video_id,
         'url': f'https://www.youtube.com/watch?v={video_id}'
        })
-      
+    
+    if not results:
+      raise ValueError('No videos found. Try again.')
+
     return results  
 
 def download_video(video_id: str, output_path: str = f'{general.BASE_DIR}/{general.AUDIO_RAW}') -> None:
