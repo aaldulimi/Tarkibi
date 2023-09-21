@@ -1,8 +1,10 @@
 from datetime import timedelta
-from tarkibi import build_dataset
+from tarkibi import Tarkibi
 
 if __name__ == '__main__':
-    build_dataset('Elon Musk', 
+    tarkibi = Tarkibi()
+    tarkibi.build_dataset(
+        'Elon Musk', 
         reference_audio='reference.wav',
         target_duration=timedelta(minutes=10), 
         output_path='dataset', 
