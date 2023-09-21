@@ -8,7 +8,7 @@ class _Youtube:
     _HEADERS = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
     }
-    _DOWNLOADS_OUTPUT_PATH = f'{general.BASE_DIR}/{general.DOWNLOADS}'
+    _DOWNLOADS_OUTPUT_PATH = f'{general.BASE_DIR}/downloads'
 
     def __init__(self):
        pass
@@ -52,7 +52,7 @@ class _Youtube:
 
         return results 
         
-    def _download_video(self, video_id: str, output_path: str = f'{general.BASE_DIR}/{general.AUDIO_RAW}') -> None:
+    def _download_video(self, video_id: str, output_path: str) -> None:
         """
         Downloads a video from youtube and converts it to a wav file
         """

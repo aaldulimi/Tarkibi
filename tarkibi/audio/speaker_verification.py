@@ -5,11 +5,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 import nemo.collections.asr as nemo_asr
 
 class _SpeakerVerification:
-    _FAILED_THRESHOLD = 5
-    _PASSED_THRESHOLD = 5
-    _NVIDIA_NEMO_MODEL_NAME = "nvidia/speakerverification_en_titanet_large"
+    _FAILED_THRESHOLD = 20
+    _PASSED_THRESHOLD = 20
+    _NVIDIA_NEMO_MODEL = "nvidia/speakerverification_en_titanet_large"
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def _get_audio_files(self, audio_directory: str) -> list[str]:
@@ -56,7 +56,7 @@ class _SpeakerVerification:
         return self._generate_audio_groups_from_files(similar_clips)
     
     def _speaker_recognition(self, audio_directory: str, reference_audio: str) -> dict[str, list]:
-        speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(self._NVIDIA_NEMO_MODEL_NAME)
+        speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(self._NVIDIA_NEMO_MODEL)
         audio_files = self._get_audio_files(audio_directory)
 
         speaker_performance = {}

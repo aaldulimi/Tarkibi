@@ -1,2 +1,2 @@
-from .dataset import Tarkibi
+from .tarkibi import Tarkibi
 
