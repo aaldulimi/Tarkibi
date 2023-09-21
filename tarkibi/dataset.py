@@ -24,6 +24,7 @@ class Tarkibi:
         self._diarization = _Diarization()
         self._agent = tarkibi.utilities.agent._Agent()
         self._youtube = tarkibi.utilities.youtube._Youtube()
+        self._speaker_verification = tarkibi.utilities.audio._SpeakerVerification()
 
     def _convert_time_to_minutes(self, time_str: str) -> float:
         parts = time_str.split(':')
@@ -96,7 +97,7 @@ class Tarkibi:
             _clips_used.append(video_id)
             self._process_video(video_id)
         
-        audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
+        audio_groups = self._speaker_verification.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
 
         for ag, clips in audio_groups.items():
             concat_file = f'{BASE_DIR}/{AUDIO_SPECS}/{ag}_concat.txt'
@@ -133,7 +134,7 @@ class _Diarization:
     def __init__(self):
         pass
         
-    def _format_time(seconds) -> str:
+    def _format_time(self, seconds) -> str:
         return str(timedelta(seconds=seconds))
     
     def _diarize_audio_to_segments(self, file_path: str = None) -> list | dict[str, typing.Any]:
