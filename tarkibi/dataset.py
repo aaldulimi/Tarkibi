@@ -3,6 +3,7 @@ import subprocess
 from datetime import timedelta
 import os
 import tarkibi.utilities.general, tarkibi.utilities.youtube, tarkibi.utilities.audio, tarkibi.utilities.agent
+import shutil
 
 AUDIO_NN = tarkibi.utilities.general.AUDIO_NN
 AUDIO_RAW = tarkibi.utilities.general.AUDIO_RAW
@@ -78,7 +79,8 @@ def process_video(video_id: str, debug_mode: bool = False):
     if not debug_mode: tarkibi.utilities.general.light_clean(video_id)
      
      
-def build_dataset(author: str, reference_audio: str, target_length: timedelta, output_path: str = 'dataset', sample_rate: int = 24000):
+def build_dataset(author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', sample_rate: int = 24000,
+                  _offset: int | None = 0, _clips_used: list | None = None):
     tarkibi.utilities.general.make_directories()
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -86,12 +88,16 @@ def build_dataset(author: str, reference_audio: str, target_length: timedelta, o
     search_query = tarkibi.utilities.agent.generate_search_query(author)
     videos = tarkibi.utilities.youtube.youtube_search(search_query)
 
-    closest_combination = tarkibi.utilities.general.find_closest_combination(videos, target_length)
+    if _clips_used:
+        videos = [video for video in videos if video['id'] not in _clips_used]
+    else: _clips_used = []
+    
+    closest_combination = tarkibi.utilities.general.find_closest_combination(videos, target_duration)
     for video in closest_combination:
         video_id = video['id']
+        _clips_used.append(video_id)
         process_video(video_id)
-
-    i = 0
+    
     audio_groups = tarkibi.utilities.audio.find_similar_clips(f'{BASE_DIR}/{AUDIO_CLIPS}', reference_audio)
     
     for ag, clips in audio_groups.items():
@@ -102,8 +108,13 @@ def build_dataset(author: str, reference_audio: str, target_length: timedelta, o
                 f.write(f'file ../{clip}\n')
             
         subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -c copy {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav', shell=True)
-        subprocess.run(f'ffmpeg -i {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav -ar {str(sample_rate)} {output_path}/{i}.wav', shell=True)
-        i += 1
+        subprocess.run(f'ffmpeg -i {BASE_DIR}/{AUDIO_FINAL}/{ag}.wav -ar {str(sample_rate)} {output_path}/{_offset}.wav', shell=True)
+        shutil.rmtree(f'{BASE_DIR}/{AUDIO_CLIPS}/{ag}')
+        _offset += 1
+
+    remaining_duration = target_duration.total_seconds() - tarkibi.utilities.general.total_duration(output_path)
+    if remaining_duration > (0.2 * target_duration.total_seconds()):
+        build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate, _offset, _clips_used)
 
     tarkibi.utilities.general.deep_clean()
     

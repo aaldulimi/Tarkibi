@@ -45,8 +45,8 @@ def most_common_audio(audio_directory: str) -> dict:
     return audio_groups
 
 def speaker_recognition(audio_directory: str, reference_audio: str):
-    FAILED_THRESHOLD = 20
-    PASSED_THRESHOLD = 10
+    FAILED_THRESHOLD = 5
+    PASSED_THRESHOLD = 5
 
     speaker_model = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained("nvidia/speakerverification_en_titanet_large")
     audio_files = get_audio_files(audio_directory)
