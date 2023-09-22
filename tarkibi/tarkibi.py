@@ -5,7 +5,7 @@ import shutil
 import itertools
 import wave
 import tarkibi.utilities.general, tarkibi.utilities.youtube, tarkibi.utilities.agent
-import tarkibi.audio.noise_reduction, tarkibi.audio.diarization, tarkibi.audio.speaker_verification
+import tarkibi.audio.noise_reduction, tarkibi.audio.diarization, tarkibi.audio.speaker_verification, tarkibi.audio.transcription
 
 class Tarkibi:
     _BASE_DIR = tarkibi.utilities.general.BASE_DIR
@@ -13,11 +13,13 @@ class Tarkibi:
     _AUDIO_SPECS_PATH = f'{_BASE_DIR}/audio_specs'
     _AUDIO_FINAL_PATH = f'{_BASE_DIR}/audio_final'
     _DURATION_MULTIPLIER = 1.2
+    _DEFAULT_SAMPLE_RATE = 16000
 
     def __init__(self) -> None:
         self._noise_reduction = tarkibi.audio.noise_reduction._NoiseReduction()
         self._diarization = tarkibi.audio.diarization._Diarization()
         self._speaker_verification = tarkibi.audio.speaker_verification._SpeakerVerification()
+        self._transcription = tarkibi.audio.transcription._Transcription()
 
         self._agent = tarkibi.utilities.agent._Agent()
         self._youtube = tarkibi.utilities.youtube._Youtube()
@@ -62,7 +64,11 @@ class Tarkibi:
         return closest_combination
 
     def _process_video(self, video_id: str, debug_mode: bool = False) -> None:
-        self._youtube._download_video(video_id, output_path=self._AUDIO_RAW_PATH)
+        # fix age restricted video download error
+        try:
+            self._youtube._download_video(video_id, output_path=self._AUDIO_RAW_PATH)
+        except:
+            return 
     
         nr_output_path = self._noise_reduction._noise_reduction(f'{self._AUDIO_RAW_PATH}/{video_id}.wav')
         self._ac_output_path = self._diarization._diarize_audio(f'{nr_output_path}/{video_id}/vocals.wav', video_id)
@@ -82,8 +88,8 @@ class Tarkibi:
 
         return total_duration
 
-    def _join_audio_group_to_output(self, ac_output_path: str, audio_group: str, clips: list[str], output_path: str, 
-                                    sample_rate: int) -> None:
+    def _join_audio_group_to_output(self, ac_output_path: str, audio_group: str, clips: list[str], output_path: str,
+                                    sample_rate: int = _DEFAULT_SAMPLE_RATE) -> str:
         concat_file = f'{self._AUDIO_SPECS_PATH}/{audio_group}_concat.txt'
         with open(concat_file, 'w') as f:
             for clip in clips:
@@ -93,12 +99,30 @@ class Tarkibi:
         subprocess.run(f'ffmpeg -i {self._AUDIO_FINAL_PATH}/{audio_group}.wav -ar {str(sample_rate)} {output_path}/{self._offset}.wav', shell=True)
         shutil.rmtree(f'{ac_output_path}/{audio_group}')
         self._offset += 1
+        
+        return f'{output_path}/{self._offset - 1}'
     
     def _deep_clean(self) -> None:
-        shutil.rmtree(self._BASE_DIR, ignore_errors=True)
+        items = os.listdir(self._BASE_DIR)
+        for item in items:
+            item_path = os.path.join(self._BASE_DIR, item)
+            
+            if os.path.isdir(item_path) and item != 'whisper.cpp':
+                shutil.rmtree(item_path, ignore_errors=True)
+
+    def _add_transcription(self, output_path: str, sample_rate: int = _DEFAULT_SAMPLE_RATE) -> None:
+        if sample_rate != self._DEFAULT_SAMPLE_RATE:
+            temp_file = f'{output_path}_16.wav'
+            subprocess.run(f'ffmpeg -i {output_path}.wav -ar {str(self._DEFAULT_SAMPLE_RATE)} {temp_file}', shell=True)
+
+            self._transcription.transcribe_file(temp_file)
+            os.remove(temp_file)
+        
+        else:
+            self._transcription.transcribe_file(f'{output_path}.wav')
 
     def build_dataset(self, author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', 
-                      sample_rate: int = 24000) -> None:
+                      sample_rate: int = _DEFAULT_SAMPLE_RATE, with_transcription: bool = True) -> None:
         if not os.path.exists(output_path):
             os.mkdir(output_path)
 
@@ -116,10 +140,12 @@ class Tarkibi:
         audio_groups = self._speaker_verification.find_similar_clips(self._ac_output_path, reference_audio)
 
         for audio_group, clips in audio_groups.items():
-            self._join_audio_group_to_output(self._ac_output_path, audio_group, clips, output_path, sample_rate)
-
+            audio_id = self._join_audio_group_to_output(self._ac_output_path, audio_group, clips, output_path, sample_rate)
+            if with_transcription:
+                self._add_transcription(audio_id, sample_rate)
+        
         remaining_duration = target_duration.total_seconds() - self._total_duration(output_path)
         if remaining_duration > (0.2 * target_duration.total_seconds()):
-            self.build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate)
-        
+            self.build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate, with_transcription)
+
         self._deep_clean()

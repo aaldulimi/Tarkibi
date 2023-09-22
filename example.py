@@ -9,4 +9,5 @@ if __name__ == '__main__':
         target_duration=timedelta(minutes=10), 
         output_path='dataset', 
         sample_rate=48000,
+        with_transcription=True
     )
