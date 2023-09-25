@@ -3,6 +3,9 @@ import json
 import subprocess
 from pytube import YouTube
 from . import general
+from tarkibi.utilities._config import logger
+
+logger = logger.getChild(__name__)
 
 class _Youtube:
     _HEADERS = {
@@ -17,6 +20,7 @@ class _Youtube:
         """
         Searches youtube for a given query and returns a list of videos
         """
+        logger.info(f'Tarkibi _search: Searching youtube for query: {query}')
         query = query.replace(' ', '+')
         url = f'https://www.youtube.com/results?search_query={query}'
 
@@ -56,7 +60,9 @@ class _Youtube:
         """
         Downloads a video from youtube and converts it to a wav file
         """
+        logger.info(f'Tarkibi _download_video: Downloading video: {video_id}')
         url = f'https://www.youtube.com/watch?v={video_id}'
+
         
         yt = YouTube(url)
         audio_file = yt.streams.filter(only_audio=True).get_audio_only()

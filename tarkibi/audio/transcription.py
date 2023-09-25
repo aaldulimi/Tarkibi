@@ -2,6 +2,9 @@
 import subprocess
 import tarkibi.utilities.general
 import os
+from tarkibi.utilities._config import logger
+
+logger = logger.getChild(__name__)
 
 class _Transcription:
     _WHISPER_DEFAULT_MODEL = 'tiny.en'
@@ -41,13 +44,17 @@ class _Transcription:
         return False
 
     def _clone_whisper_cpp(self) -> None:
+        logger.info(f'Tarkibi _clone_whisper_cpp: Cloning whisper.cpp repo to {self._TRANSCRIPTION_DIR}')
         subprocess.run(f'git clone {self._WHISPER_CPP_REPO} {self._TRANSCRIPTION_DIR}/', shell=True)
         
     def _download_and_make_whisper_cpp_model(self) -> None:
-        subprocess.run(f'bash .tarkibi/whisper.cpp/models/download-ggml-model.sh {self.model}', shell=True)
+        logger.info(f'Tarkibi _download_and_make_whisper_cpp_model: Downloading and making whisper.cpp model: {self.model}')
+        download_model_cmd = f'bash .tarkibi/whisper.cpp/models/download-ggml-model.sh {self.model}'
+        subprocess.run(download_model_cmd, shell=True)
         
-        # make model    
-        subprocess.run('cd .tarkibi/whisper.cpp && make clean && WHISPER_NO_METAL=true make', shell=True)
+        # make model 
+        make_model_cmd = 'cd .tarkibi/whisper.cpp && make clean && WHISPER_NO_METAL=true make'
+        subprocess.run(make_model_cmd, shell=True)
 
     def transcribe_file(self, audio_directory: str, output_name: str) -> None:
         if not self._check_whisper_cpp_exists():
@@ -60,4 +67,5 @@ class _Transcription:
         args = self._WHISPER_ARGS + [f'-of ../../dataset/{output_name}']
         args_text = ' '.join(args)
 
-        subprocess.run(f'cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args_text} ../../{audio_directory}', shell=True)
+        transcription_cmd = f'cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args_text} ../../{audio_directory}'
+        subprocess.run(transcription_cmd, shell=True)

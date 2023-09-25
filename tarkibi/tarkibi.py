@@ -104,6 +104,7 @@ class Tarkibi:
         return total_duration
 
     def _join_audio_group_to_output(self, output_dir: str, audio_group: str, clips: list[str]) -> None:
+        logger.info(f"Tarkibi _join_audio_group_to_output: Joining audio group {audio_group} to output")
         concat_file = f'{self._AUDIO_SPECS_PATH}/{audio_group}_concat.txt'
         with open(concat_file, 'w') as f:
             sorted_clips = sorted(clips, key=lambda x: int(x.split('/')[-1].split('.')[0]))
@@ -112,7 +113,6 @@ class Tarkibi:
                 f.write(f'file ../../{clip}\n')
 
         subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -ar {str(self._DEFAULT_SAMPLE_RATE)} {output_dir}/{audio_group}.wav', shell=True)
-        logger.info(f"Tarkibi _join_audio_group_to_output: Joined audio group {audio_group} to output")
 
     def _split_audio_clips_to_dataset(self, output_path: str, audio_file: str) -> list[str]:
         logger.info(f"Tarkibi _split_audio_clips_to_dataset: Splitting audio file {audio_file} to dataset")
@@ -139,7 +139,6 @@ class Tarkibi:
             self._offset += 1
             output_files.append(output_file)
 
-        logger.info(f"Tarkibi _split_audio_clips_to_dataset: Output files: {output_files}")
         return output_files
     
     def _deep_clean(self) -> None:
@@ -196,19 +195,19 @@ class Tarkibi:
         logger.info(f"Tarkibi _collect_audio_clips: Output files: {output_files}")
         return output_files
     
-    def _create_dataset_dirs(self, output_path: str) -> None:
+    def _create_dataset_dirs(self, output_path: str, wav_file_output_path: str) -> None:
         if not os.path.exists(output_path):
             os.mkdir(output_path)
         
-        if not os.path.exists(f'{output_path}/wavs'):
-            os.mkdir(f'{output_path}/wavs')
+        if not os.path.exists(wav_file_output_path):
+            os.mkdir(wav_file_output_path)
     
     def _update_sample_rate(output_path: str, sample_rate: int, all_output_files: list[str]):
         final_path = f'{output_path}/wavs'
         temp_path = f'{output_path}/wavs_temp'
         file_id = file.split("/")[-1]
 
-        os.makedirs(f'{output_path}/wavs_temp')
+        os.makedirs(temp_path)
         for file in all_output_files:
             subprocess.run(f'ffmpeg -i {file} -ar {str(sample_rate)} {temp_path}/{file_id}', shell=True)
 
@@ -220,17 +219,18 @@ class Tarkibi:
     def build_dataset(self, author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', 
                       sample_rate: int = _DEFAULT_SAMPLE_RATE, with_transcription: bool = True) -> None:
         logger.info(f"Tarkibi _build_dataset: Building dataset for {author} with target duration {target_duration}")
-        self._create_dataset_dirs(output_path)
-
-        remaining_duration = target_duration.total_seconds() - self._total_duration(f'{output_path}/wavs')
+        wav_file_output_path = f'{output_path}/wavs'  
+        self._create_dataset_dirs(output_path, wav_file_output_path)
+        
+        remaining_duration = target_duration.total_seconds() - self._total_duration(wav_file_output_path)
         while remaining_duration > (0.2 * target_duration.total_seconds()):
             joined_final_paths = self._collect_audio_clips(author, target_duration, reference_audio)
             for final_path in joined_final_paths:
-                self._split_audio_clips_to_dataset(f'{output_path}/wavs', final_path)
+                self._split_audio_clips_to_dataset(wav_file_output_path, final_path)
             
-            remaining_duration = target_duration.total_seconds() - self._total_duration(f'{output_path}/wavs')
+            remaining_duration = target_duration.total_seconds() - self._total_duration(wav_file_output_path)
         
-        all_output_files = [f'{output_path}/wavs/{file}' for file in os.listdir(f'{output_path}/wavs') if file.endswith('.wav')]
+        all_output_files = [f'{wav_file_output_path}/{file}' for file in os.listdir(wav_file_output_path) if file.endswith('.wav')]
         if with_transcription:
             self._transcribe_files(all_output_files)
             self._format_transcription_ljspeech(output_path, output_path)

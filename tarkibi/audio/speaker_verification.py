@@ -5,6 +5,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import nemo.collections.asr as nemo_asr
 from tarkibi.utilities._config import logger
 
+logger = logger.getChild(__name__)
+
 class _SpeakerVerification:
     _FAILED_THRESHOLD = 20
     _PASSED_THRESHOLD = 20
@@ -21,10 +23,10 @@ class _SpeakerVerification:
                 if filename.endswith('.wav'):
                     audio_files.append(os.path.join(root, filename))
 
-        logger.info(f'Found {len(audio_files)} audio files in {audio_directory}. They are {audio_files}')
         return audio_files
 
     def _generate_audio_groups_from_files(self, audio_files: list[str]) -> dict[str, list]:
+        logger.info(f'Tarkibi _generate_audio_groups_from_files: Generating audio groups from audio files: {audio_files}')
         audio_groups: dict[str, list] = {}
         for result in audio_files:
             video_id = result.split('/')[-2]
@@ -33,15 +35,16 @@ class _SpeakerVerification:
 
             audio_groups[video_id].append(result)
         
-        logger.info(f'Found {len(audio_groups)} audio groups. They are {audio_groups}')
         return audio_groups
     
     def _extract_mfcc_features(self, audio_file: str) -> np.ndarray:
+        logger.info(f'Tarkibi _extract_mfcc_features: Extracting mfcc features from audio file: {audio_file}')
         y, sr = librosa.load(audio_file, sr=None)
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
         return mfccs
     
     def _most_common_audio(self, audio_directories: list[str]) -> dict[str, list]:
+        logger.info(f'Tarkibi _most_common_audio: Finding most common audio from audio directories: {audio_directories}')
         audio_files = []
         for audio_directory in audio_directories:
             audio_files.extend(self._get_audio_files(audio_directory))
@@ -62,11 +65,10 @@ class _SpeakerVerification:
         return self._generate_audio_groups_from_files(similar_clips)
     
     def _speaker_recognition(self, audio_directories: str, reference_audio: str) -> dict[str, list]:
+        logger.info(f'Tarkibi _speaker_recognition: Finding similar clips from audio directories: {audio_directories}')
         speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(self._NVIDIA_NEMO_MODEL)
-        logger.info(f'audio_directories are {audio_directories}')
         audio_files = self._get_audio_files(audio_directories)
 
-        logger.info(f'audio_files are {audio_files}')
         speaker_performance = {}
         similar_clips = []
         for audio_file in audio_files:
