@@ -3,6 +3,7 @@ import numpy as np
 import os
 from sklearn.metrics.pairwise import cosine_similarity
 import nemo.collections.asr as nemo_asr
+from tarkibi.utilities._config import logger
 
 class _SpeakerVerification:
     _FAILED_THRESHOLD = 20
@@ -20,6 +21,7 @@ class _SpeakerVerification:
                 if filename.endswith('.wav'):
                     audio_files.append(os.path.join(root, filename))
 
+        logger.info(f'Found {len(audio_files)} audio files in {audio_directory}. They are {audio_files}')
         return audio_files
 
     def _generate_audio_groups_from_files(self, audio_files: list[str]) -> dict[str, list]:
@@ -30,7 +32,8 @@ class _SpeakerVerification:
                 audio_groups[video_id] = []
 
             audio_groups[video_id].append(result)
-            
+        
+        logger.info(f'Found {len(audio_groups)} audio groups. They are {audio_groups}')
         return audio_groups
     
     def _extract_mfcc_features(self, audio_file: str) -> np.ndarray:
@@ -58,13 +61,12 @@ class _SpeakerVerification:
 
         return self._generate_audio_groups_from_files(similar_clips)
     
-    def _speaker_recognition(self, audio_directories: list[str], reference_audio: str) -> dict[str, list]:
+    def _speaker_recognition(self, audio_directories: str, reference_audio: str) -> dict[str, list]:
         speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(self._NVIDIA_NEMO_MODEL)
-        
-        audio_files = []
-        for audio_directory in audio_directories:
-            audio_files.extend(self._get_audio_files(audio_directory))
+        logger.info(f'audio_directories are {audio_directories}')
+        audio_files = self._get_audio_files(audio_directories)
 
+        logger.info(f'audio_files are {audio_files}')
         speaker_performance = {}
         similar_clips = []
         for audio_file in audio_files:
