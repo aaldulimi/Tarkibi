@@ -4,12 +4,22 @@ import subprocess
 from datetime import timedelta
 import tarkibi.utilities.general
 from simple_diarizer.diarizer import Diarizer
+import logging
+from pydub import AudioSegment
+
+logging.basicConfig(
+    filename='tarkibi.log',  
+    level=logging.INFO,  
+    format='%(asctime)s [%(levelname)s] %(message)s' 
+)
 
 class _Diarization:
     _AUDIO_CLIPS_PATH = f'{tarkibi.utilities.general.BASE_DIR}/audio_clips'
 
     def __init__(self) -> None:
+        self._logger = logging.getLogger(__name__)
         tarkibi.utilities.general.make_directories([self._AUDIO_CLIPS_PATH])
+
         
     def _format_time(self, seconds) -> str:
         return str(timedelta(seconds=seconds))
@@ -51,6 +61,7 @@ class _Diarization:
                     'end': segment_end
                 })
         
+        self._logger.info(f'Tarkibi _group_segments_by_speaker: {speakers}')
         return speakers
     
 
@@ -73,10 +84,31 @@ class _Diarization:
 
                 i += 1
     
+    def _segment_audio_clips_v2(self, speakers: dict[str, typing.Any], file_path: str, audio_id: str) -> None:
+        for speaker, info in speakers.items():
+            audio_clips_path = f'{self._AUDIO_CLIPS_PATH}/{audio_id}'
+            if not os.path.exists(audio_clips_path):
+                os.mkdir(audio_clips_path)
+                
+            segments = []
+
+            for _, segment in enumerate(info['segments']):
+                segment_start = segment['start'] * 1000  
+                segment_end = segment['end'] * 1000      
+
+                audio = AudioSegment.from_wav(file_path)
+                segment_audio = audio[segment_start:segment_end]
+
+                segments.append(segment_audio)
+
+            concatenated_audio = sum(segments)
+            output_file = f'{audio_clips_path}/{speaker}.wav'
+            concatenated_audio.export(output_file, format="wav")
+    
     def _diarize_audio(self, file_path: str, audio_id: str) -> str:
         segments = self._diarize_audio_to_segments(file_path)
         speakers = self._group_segments_by_speaker(segments)
-        self._segment_audio_clips(speakers, file_path, audio_id)
+        self._segment_audio_clips_v2(speakers, file_path, audio_id)
 
         return f'{self._AUDIO_CLIPS_PATH}/{audio_id}'
     

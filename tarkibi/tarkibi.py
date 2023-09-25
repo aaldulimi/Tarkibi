@@ -84,6 +84,8 @@ class Tarkibi:
     
         nr_output_path = self._noise_reduction._noise_reduction(f'{self._AUDIO_RAW_PATH}/{video_id}.wav')
         ac_output_path = self._diarization._diarize_audio(f'{nr_output_path}/{video_id}/vocals.wav', video_id)
+        # self._speaker_verification._speaker_recognition(ac_output_path, reference_path)
+
         self._logger.info(f"Tarkibi _process_video: ac_output_path: {ac_output_path}, nr_output_path: {nr_output_path}")
 
         if not debug_mode:
@@ -112,7 +114,8 @@ class Tarkibi:
     def _join_audio_group_to_output(self, output_dir: str, audio_group: str, clips: list[str]) -> None:
         concat_file = f'{self._AUDIO_SPECS_PATH}/{audio_group}_concat.txt'
         with open(concat_file, 'w') as f:
-            sorted_clips = sorted(clips, key=lambda path: int(path.split('/')[-1].split('_')[1].split('.')[0]))
+            sorted_clips = sorted(clips, key=lambda x: int(x.split('/')[-1].split('.')[0]))
+
             for clip in sorted_clips:
                 f.write(f'file ../../{clip}\n')
 
