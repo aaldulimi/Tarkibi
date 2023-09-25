@@ -78,5 +78,5 @@ class _Diarization:
         speakers = self._group_segments_by_speaker(segments)
         self._segment_audio_clips(speakers, file_path, audio_id)
 
-        return self._AUDIO_CLIPS_PATH
+        return f'{self._AUDIO_CLIPS_PATH}/{audio_id}'
     

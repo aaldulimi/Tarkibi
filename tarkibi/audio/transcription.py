@@ -49,7 +49,7 @@ class _Transcription:
         # make model    
         subprocess.run('cd .tarkibi/whisper.cpp && make clean && WHISPER_NO_METAL=true make', shell=True)
 
-    def transcribe_file(self, audio_directory: str) -> None:
+    def transcribe_file(self, audio_directory: str, output_name: str) -> None:
         if not self._check_whisper_cpp_exists():
             self._clone_whisper_cpp()
             self._download_and_make_whisper_cpp_model()
@@ -57,7 +57,7 @@ class _Transcription:
         elif not self._check_whisper_cpp_model_exists():
             self._download_and_make_whisper_cpp_model()
 
-        # audio_files = ' '.join([f'../../{audio_file}' for audio_file in self._get_audio_files(audio_directory)])
-        args = ' '.join(self._WHISPER_ARGS)
+        args = self._WHISPER_ARGS + [f'-of ../../dataset/{output_name}']
+        args_text = ' '.join(args)
 
-        subprocess.run(f'cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args} ../../{audio_directory}', shell=True)
+        subprocess.run(f'cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args_text} ../../{audio_directory}', shell=True)

@@ -6,14 +6,25 @@ import itertools
 import wave
 import tarkibi.utilities.general, tarkibi.utilities.youtube, tarkibi.utilities.agent
 import tarkibi.audio.noise_reduction, tarkibi.audio.diarization, tarkibi.audio.speaker_verification, tarkibi.audio.transcription
+import random
+import logging
+
+logging.basicConfig(
+    filename='tarkibi.log',  
+    level=logging.INFO,  
+    format='%(asctime)s [%(levelname)s] %(message)s' 
+)
 
 class Tarkibi:
     _BASE_DIR = tarkibi.utilities.general.BASE_DIR
     _AUDIO_RAW_PATH = f'{_BASE_DIR}/audio_raw'
     _AUDIO_SPECS_PATH = f'{_BASE_DIR}/audio_specs'
     _AUDIO_FINAL_PATH = f'{_BASE_DIR}/audio_final'
-    _DURATION_MULTIPLIER = 1.2
+    _DURATION_MULTIPLIER = 2.0
+
     _DEFAULT_SAMPLE_RATE = 16000
+    _MAX_CLIP_DURATION = 15
+    _MIN_CLIP_DURATION = 1
 
     def __init__(self) -> None:
         self._noise_reduction = tarkibi.audio.noise_reduction._NoiseReduction()
@@ -24,11 +35,10 @@ class Tarkibi:
         self._agent = tarkibi.utilities.agent._Agent()
         self._youtube = tarkibi.utilities.youtube._Youtube()
 
+        self._logger = logging.getLogger(__name__) 
+
         self._offset = 0
         self._clips_used = []
-
-        # will get overriden, this is just a default
-        self._ac_output_path = f'{self._BASE_DIR}/audio_clips'
 
         tarkibi.utilities.general.make_directories([self._BASE_DIR, self._AUDIO_RAW_PATH, self._AUDIO_SPECS_PATH, self._AUDIO_FINAL_PATH])
 
@@ -64,18 +74,29 @@ class Tarkibi:
         return closest_combination
 
     def _process_video(self, video_id: str, debug_mode: bool = False) -> None:
+        self._logger.info(f"Tarkibi _process_video: Processing video {video_id}")
         # fix age restricted video download error
         try:
             self._youtube._download_video(video_id, output_path=self._AUDIO_RAW_PATH)
-        except:
+        except Exception as e:
+            self._logger.error(f"Error downloading video {video_id}: {e}")
             return 
     
         nr_output_path = self._noise_reduction._noise_reduction(f'{self._AUDIO_RAW_PATH}/{video_id}.wav')
-        self._ac_output_path = self._diarization._diarize_audio(f'{nr_output_path}/{video_id}/vocals.wav', video_id)
+        ac_output_path = self._diarization._diarize_audio(f'{nr_output_path}/{video_id}/vocals.wav', video_id)
+        self._logger.info(f"Tarkibi _process_video: ac_output_path: {ac_output_path}, nr_output_path: {nr_output_path}")
 
         if not debug_mode:
             os.remove(f'{self._AUDIO_RAW_PATH}/{video_id}.wav')
             shutil.rmtree(f'{nr_output_path}/{video_id}')
+
+        return ac_output_path
+    
+    def _single_duration(self, audio_file: str) -> float:
+        with wave.open(audio_file, 'rb') as wav_file:
+            duration = wav_file.getnframes() / float(wav_file.getframerate())
+        
+        return duration
     
     def _total_duration(self, audio_directory: str) -> float:
         total_duration = 0
@@ -88,19 +109,43 @@ class Tarkibi:
 
         return total_duration
 
-    def _join_audio_group_to_output(self, ac_output_path: str, audio_group: str, clips: list[str], output_path: str,
-                                    sample_rate: int = _DEFAULT_SAMPLE_RATE) -> str:
+    def _join_audio_group_to_output(self, output_dir: str, audio_group: str, clips: list[str]) -> None:
         concat_file = f'{self._AUDIO_SPECS_PATH}/{audio_group}_concat.txt'
         with open(concat_file, 'w') as f:
-            for clip in clips:
+            sorted_clips = sorted(clips, key=lambda path: int(path.split('/')[-1].split('_')[1].split('.')[0]))
+            for clip in sorted_clips:
                 f.write(f'file ../../{clip}\n')
 
-        subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -c copy {self._AUDIO_FINAL_PATH}/{audio_group}.wav', shell=True)
-        subprocess.run(f'ffmpeg -i {self._AUDIO_FINAL_PATH}/{audio_group}.wav -ar {str(sample_rate)} {output_path}/{self._offset}.wav', shell=True)
-        shutil.rmtree(f'{ac_output_path}/{audio_group}')
-        self._offset += 1
-        
-        return f'{output_path}/{self._offset - 1}'
+        subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -ar {str(self._DEFAULT_SAMPLE_RATE)} {output_dir}/{audio_group}.wav', shell=True)
+        self._logger.info(f"Tarkibi _join_audio_group_to_output: Joined audio group {audio_group} to output")
+
+    def _split_audio_to_dataset(self, output_path: str, audio_file: str) -> list[str]:
+        self._logger.info(f"Tarkibi _split_audio_to_dataset: Splitting audio file {audio_file} to dataset")
+        total_duration = self._single_duration(audio_file)
+
+        output_files = []
+        while total_duration > self._MIN_CLIP_DURATION:
+            clip_duration = random.uniform(self._MIN_CLIP_DURATION, self._MAX_CLIP_DURATION)
+            clip_duration = min(clip_duration, total_duration)
+            
+            start_time = random.uniform(0, total_duration - clip_duration)
+            
+            output_file = os.path.join(output_path, f"{self._offset:05d}.wav")
+            subprocess.run([
+                'ffmpeg',
+                '-ss', str(start_time),
+                '-i', audio_file,
+                '-t', str(clip_duration),
+                '-c:a', 'copy',
+                output_file
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            
+            total_duration -= clip_duration
+            self._offset += 1
+            output_files.append(output_file)
+
+        self._logger.info(f"Tarkibi _split_audio_to_dataset: Output files: {output_files}")
+        return output_files
     
     def _deep_clean(self) -> None:
         items = os.listdir(self._BASE_DIR)
@@ -109,43 +154,88 @@ class Tarkibi:
             
             if os.path.isdir(item_path) and item != 'whisper.cpp':
                 shutil.rmtree(item_path, ignore_errors=True)
-
-    def _add_transcription(self, output_path: str, sample_rate: int = _DEFAULT_SAMPLE_RATE) -> None:
-        if sample_rate != self._DEFAULT_SAMPLE_RATE:
-            temp_file = f'{output_path}_16.wav'
-            subprocess.run(f'ffmpeg -i {output_path}.wav -ar {str(self._DEFAULT_SAMPLE_RATE)} {temp_file}', shell=True)
-
-            self._transcription.transcribe_file(temp_file)
-            os.remove(temp_file)
         
-        else:
-            self._transcription.transcribe_file(f'{output_path}.wav')
+    def _format_transcription_ljspeech(self, transcription_directory: str) -> None:
+        transcription_files = []
+        for root, _, files in os.walk(transcription_directory):
+            for filename in files:
+                if filename.endswith('.txt') and filename != 'metadata.txt':
+                    transcription_files.append(os.path.join(root, filename))
+        
+        sorted_transcription_files = sorted(transcription_files, key=lambda x: int(x.split('/')[-1].split('.')[0]))
 
-    def build_dataset(self, author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', 
-                      sample_rate: int = _DEFAULT_SAMPLE_RATE, with_transcription: bool = True) -> None:
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
+        with open('dataset/metadata.txt', 'w') as metadata_file:
+            for file in sorted_transcription_files:
+                file_id = file.split('/')[-1].split('.')[0]
+                with open(file, 'r') as g:
+                    file_content = g.read()
+                    file_content = file_content.replace('\n', ' ')
+                
+                metadata_file.write(f'{file_id}|{file_content[1:]}\n')
+                os.remove(file)
+            
+    def _transcribe_files(self, audio_files: list[str]) -> None:
+        for audio_file in audio_files:
+            output_name = audio_file.split('/')[-1].split('.')[0]
+            self._transcription.transcribe_file(audio_file, output_name)
 
+    def _collect_audio_clips(self, author: str, target_duration: timedelta, reference_audio: str | None = None) -> list[str]:
+        self._logger.info(f"Tarkibi _collect_audio_clips: Collecting audio clips for {author} with target duration {target_duration}")
         search_query = self._agent._generate_search_query(author)
         videos = self._youtube._search(search_query)
 
         if self._clips_used:
             videos = [video for video in videos if video['id'] not in self._clips_used]
 
+        ac_audio_paths = []
         closest_combination = self._find_closest_combination(videos, target_duration)
         for video in closest_combination:
             self._clips_used.append(video['id'])
-            self._process_video(video['id'])
+            ac_audio_paths.append(self._process_video(video['id']))
 
-        audio_groups = self._speaker_verification.find_similar_clips(self._ac_output_path, reference_audio)
+        self._logger.info(f"Tarkibi _collect_audio_clips: Audio paths before speaker verfication: {ac_audio_paths}")
+        audio_groups = self._speaker_verification.find_similar_clips(ac_audio_paths, reference_audio)
 
+        output_files = []
         for audio_group, clips in audio_groups.items():
-            audio_id = self._join_audio_group_to_output(self._ac_output_path, audio_group, clips, output_path, sample_rate)
-            if with_transcription:
-                self._add_transcription(audio_id, sample_rate)
-        
-        remaining_duration = target_duration.total_seconds() - self._total_duration(output_path)
-        if remaining_duration > (0.2 * target_duration.total_seconds()):
-            self.build_dataset(author, reference_audio, timedelta(seconds=remaining_duration), output_path, sample_rate, with_transcription)
+            self._join_audio_group_to_output(self._AUDIO_FINAL_PATH, audio_group, clips)
+            output_files.append(f'{self._AUDIO_FINAL_PATH}/{audio_group}.wav')
 
+        self._logger.info(f"Tarkibi _collect_audio_clips: Output files: {output_files}")
+        return output_files
+          
+    def build_dataset(self, author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', 
+                      sample_rate: int = _DEFAULT_SAMPLE_RATE, with_transcription: bool = True) -> None:
+        self._logger.info(f"Tarkibi _build_dataset: Building dataset for {author} with target duration {target_duration}")
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        
+        if not os.path.exists(f'{output_path}/wavs'):
+            os.mkdir(f'{output_path}/wavs')
+
+        remaining_duration = target_duration.total_seconds() - self._total_duration(f'{output_path}/wavs')
+        while remaining_duration > (0.2 * target_duration.total_seconds()):
+            self._logger.info(f"Tarkibi build_dataset: Remaining duration: {remaining_duration}")
+
+            joined_final_paths = self._collect_audio_clips(author, target_duration, reference_audio)
+            for final_path in joined_final_paths:
+                self._split_audio_to_dataset(f'{output_path}/wavs', final_path)
+            
+            remaining_duration = target_duration.total_seconds() - self._total_duration(f'{output_path}/wavs')
+        
+        all_output_files = [f'{output_path}/wavs/{file}' for file in os.listdir(f'{output_path}/wavs') if file.endswith('.wav')]
+        if with_transcription:
+            self._transcribe_files(all_output_files)
+            self._format_transcription_ljspeech(output_path)
+
+        if sample_rate != self._DEFAULT_SAMPLE_RATE:
+            os.makedirs(f'{output_path}/wavs_temp')
+            for file in all_output_files:
+                subprocess.run(f'ffmpeg -i {file} -ar {str(sample_rate)} {output_path}/wavs_temp/{file.split("/")[-1]}', shell=True)
+
+                os.remove(file)
+                shutil.move(f'{output_path}/wavs_temp/{file.split("/")[-1]}', f'{output_path}/wavs/{file.split("/")[-1]}')
+
+            shutil.rmtree(f'{output_path}/wavs_temp', ignore_errors=True)
+            
         self._deep_clean()

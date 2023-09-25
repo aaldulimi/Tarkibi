@@ -38,8 +38,11 @@ class _SpeakerVerification:
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
         return mfccs
     
-    def _most_common_audio(self, audio_directory: str) -> dict[str, list]:
-        audio_files = self._get_audio_files(audio_directory)
+    def _most_common_audio(self, audio_directories: list[str]) -> dict[str, list]:
+        audio_files = []
+        for audio_directory in audio_directories:
+            audio_files.extend(self._get_audio_files(audio_directory))
+
         all_features = [self._extract_mfcc_features(audio_file) for audio_file in audio_files]
         max_frames = max(features.shape[1] for features in all_features)
 
@@ -55,9 +58,12 @@ class _SpeakerVerification:
 
         return self._generate_audio_groups_from_files(similar_clips)
     
-    def _speaker_recognition(self, audio_directory: str, reference_audio: str) -> dict[str, list]:
+    def _speaker_recognition(self, audio_directories: list[str], reference_audio: str) -> dict[str, list]:
         speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(self._NVIDIA_NEMO_MODEL)
-        audio_files = self._get_audio_files(audio_directory)
+        
+        audio_files = []
+        for audio_directory in audio_directories:
+            audio_files.extend(self._get_audio_files(audio_directory))
 
         speaker_performance = {}
         similar_clips = []
@@ -100,9 +106,9 @@ class _SpeakerVerification:
 
         return self._generate_audio_groups_from_files(similar_clips)
     
-    def find_similar_clips(self, audio_directory: str, reference_audio: str | None = None) -> dict[str, list]:
+    def find_similar_clips(self, audio_directories: list[str], reference_audio: str | None = None) -> dict[str, list]:
         if reference_audio:
-            return self._speaker_recognition(audio_directory, reference_audio)
+            return self._speaker_recognition(audio_directories, reference_audio)
         
-        return self._most_common_audio(audio_directory)
+        return self._most_common_audio(audio_directories)
     
