@@ -1,5 +1,10 @@
 # Tarkibi
-Build LJSpeech-like single speaker audio datasets within minutes. Requires two things, a popular, identifiable person that has a decent amount of clips on youtube of them speaking, and a reference clip of that speaker (>=10s).
+Build LJSpeech-like single speaker audio datasets within minutes. Requires two things, a popular, identifiable person that has a decent amount of clips on youtube of them speaking, and a reference clip of that speaker (>=10s, 16KHz).
+
+### Performance 
+Speaker diarization, noise reduction, speaker verification and transcription models are used. All are offline models (will possibly add option to use some cloud provider in the future).
+Performance is OK on my Macbook Pro (2019) 13 inch base model.
+A 10 minute target duration takes about 10 minutes to run.
 
 ## Usage 
 #### 1. Clone repo and install dependencies 
@@ -9,7 +14,10 @@ cd Tarkibi
 poetry install (or 'pip install -r requirements.txt')
 ```
 
-#### 2. Use the library (taken from `example.py`)
+#### 2. Create .env
+Create a .env environment file with the key `OPENAI_API_KEY` containing your OPENAI key (used when calling GPT4 to generate the youtube search query). 
+
+#### 3. Use the library (taken from `example.py`)
 ```python
 from datetime import timedelta
 from tarkibi import Tarkibi
@@ -36,7 +44,7 @@ Audio clips are in (1s <= duration >= 15s)
   | - 00003.wav
   ...
 ```
-While transcription content is in 
+While the transcription content is in 
 ```
 metadata.txt
 
