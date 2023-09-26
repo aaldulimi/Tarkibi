@@ -21,6 +21,15 @@ class _Agent:
     def _using_chat_completion(self, person: str) -> str:
         """
         Generate a search query for a person
+        parameters
+        ----------
+        person: str
+            The person to generate a search query for
+
+        returns
+        -------
+        str
+            The search query
         """
         response = openai.ChatCompletion.create(
             model="gpt-4",
