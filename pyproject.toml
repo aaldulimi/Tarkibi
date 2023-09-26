@@ -1,6 +1,7 @@
 [tool.poetry]
 name = "tarkibi"
 version = "0.1.1"
+description = "Tarkibi is a toolkit to build LJSPeech-like datasets"
 authors = ["Ahmed"]
 readme = "README.md"
 
@@ -15,8 +16,18 @@ python-dotenv = "^1.0.0"
 youtokentome = {git = "https://github.com/LahiLuk/YouTokenToMe"}
 nemo-toolkit = {extras = ["asr"], version = "^1.20.0"}
 librosa = "^0.10.1"
+ruff = "^0.0.291"
+black = "21.12b0"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "UP",  # pyupgrade
+]
