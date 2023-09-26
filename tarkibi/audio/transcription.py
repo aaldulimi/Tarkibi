@@ -22,6 +22,18 @@ class _Transcription:
         
     # put this in parent and inherit
     def _get_audio_files(self, audio_directory: str) -> list[str]:
+        """
+        Get all audio files in a directory
+        parameters
+        ----------
+        audio_directory: str
+            The directory to get the audio files from
+        
+        returns
+        -------
+        list[str]
+            A list of audio files
+        """
         audio_files = []
 
         for root, _, files in os.walk(audio_directory):
@@ -44,10 +56,16 @@ class _Transcription:
         return False
 
     def _clone_whisper_cpp(self) -> None:
+        """
+        Clone the whisper.cpp repo
+        """
         logger.info(f'Tarkibi _clone_whisper_cpp: Cloning whisper.cpp repo to {self._TRANSCRIPTION_DIR}')
         subprocess.run(f'git clone {self._WHISPER_CPP_REPO} {self._TRANSCRIPTION_DIR}/', shell=True)
         
     def _download_and_make_whisper_cpp_model(self) -> None:
+        """
+        Download and make whisper.cpp model
+        """
         logger.info(f'Tarkibi _download_and_make_whisper_cpp_model: Downloading and making whisper.cpp model: {self.model}')
         download_model_cmd = f'bash .tarkibi/whisper.cpp/models/download-ggml-model.sh {self.model}'
         subprocess.run(download_model_cmd, shell=True)
@@ -57,6 +75,19 @@ class _Transcription:
         subprocess.run(make_model_cmd, shell=True)
 
     def transcribe_file(self, audio_directory: str, output_name: str) -> None:
+        """
+        Transcribe a file
+        parameters
+        ----------
+        audio_directory: str
+            The directory to get the audio files from
+        output_name: str
+            The name of the output file
+        
+        returns
+        -------
+        None
+        """
         if not self._check_whisper_cpp_exists():
             self._clone_whisper_cpp()
             self._download_and_make_whisper_cpp_model()

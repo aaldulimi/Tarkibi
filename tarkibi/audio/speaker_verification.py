@@ -16,6 +16,18 @@ class _SpeakerVerification:
         pass
 
     def _get_audio_files(self, audio_directory: str) -> list[str]:
+        """
+        Get all audio files in a directory
+        parameters
+        ----------
+        audio_directory: str
+            The directory to get the audio files from
+
+        returns
+        -------
+        list[str]
+            A list of audio files
+        """
         audio_files = []
 
         for root, _, files in os.walk(audio_directory):
@@ -26,6 +38,18 @@ class _SpeakerVerification:
         return audio_files
 
     def _generate_audio_groups_from_files(self, audio_files: list[str]) -> dict[str, list]:
+        """
+        Generate audio groups from a list of audio files
+        parameters
+        ----------
+        audio_files: list[str]
+            The list of audio files to generate audio groups from
+
+        returns
+        -------
+        dict[str, list]
+            A dictionary of audio groups
+        """
         logger.info(f'Tarkibi _generate_audio_groups_from_files: Generating audio groups from audio files: {audio_files}')
         audio_groups: dict[str, list] = {}
         for result in audio_files:
@@ -38,12 +62,36 @@ class _SpeakerVerification:
         return audio_groups
     
     def _extract_mfcc_features(self, audio_file: str) -> np.ndarray:
+        """
+        Extract mfcc features from an audio file
+        parameters
+        ----------
+        audio_file: str
+            The audio file to extract mfcc features from
+        
+        returns
+        -------
+        np.ndarray
+            The mfcc features
+        """
         logger.info(f'Tarkibi _extract_mfcc_features: Extracting mfcc features from audio file: {audio_file}')
         y, sr = librosa.load(audio_file, sr=None)
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
         return mfccs
     
     def _most_common_audio(self, audio_directories: list[str]) -> dict[str, list]:
+        """
+        Find the most common audio from a list of audio directories, not very reliable, can be fooled by tone, pitch, depth, etc.
+        parameters
+        ----------
+        audio_directories: list[str]
+            The list of audio directories to find the most common audio from
+        
+        returns
+        -------
+        dict[str, list]
+            A dictionary of audio groups
+        """
         logger.info(f'Tarkibi _most_common_audio: Finding most common audio from audio directories: {audio_directories}')
         audio_files = []
         for audio_directory in audio_directories:
@@ -65,6 +113,20 @@ class _SpeakerVerification:
         return self._generate_audio_groups_from_files(similar_clips)
     
     def _speaker_recognition(self, audio_directories: str, reference_audio: str) -> dict[str, list]:
+        """
+        Find similar clips from a list of audio directories using speaker recognition
+        parameters
+        ----------
+        audio_directories: list[str]
+            The list of audio directories to find similar clips from
+        reference_audio: str
+            The reference audio to compare the audio files to
+        
+        returns
+        -------
+        dict[str, list]
+            A dictionary of audio groups
+        """
         logger.info(f'Tarkibi _speaker_recognition: Finding similar clips from audio directories: {audio_directories}')
         speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(self._NVIDIA_NEMO_MODEL)
         audio_files = self._get_audio_files(audio_directories)
@@ -111,6 +173,20 @@ class _SpeakerVerification:
         return self._generate_audio_groups_from_files(similar_clips)
     
     def find_similar_clips(self, audio_directories: list[str], reference_audio: str | None = None) -> dict[str, list]:
+        """
+        Find similar clips from a list of audio directories
+        parameters
+        ----------
+        audio_directories: list[str]
+            The list of audio directories to find similar clips from
+        reference_audio: str | None
+            The reference audio to compare the audio files to
+        
+        returns
+        -------
+        dict[str, list]
+            A dictionary of audio groups
+        """
         if reference_audio:
             return self._speaker_recognition(audio_directories, reference_audio)
         

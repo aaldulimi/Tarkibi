@@ -8,6 +8,7 @@ from tarkibi.utilities._config import logger
 logger = logger.getChild(__name__)
 
 class _Youtube:
+    # should make this random
     _HEADERS = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
     }
@@ -19,6 +20,15 @@ class _Youtube:
     def _search(self, query: str) -> list[dict[str, str]]:
         """
         Searches youtube for a given query and returns a list of videos
+        parameters
+        ----------
+        query: str
+            The query to search for
+          
+        returns
+        -------
+        list[dict[str, str]]
+            A list of videos
         """
         logger.info(f'Tarkibi _search: Searching youtube for query: {query}')
         query = query.replace(' ', '+')
@@ -59,6 +69,16 @@ class _Youtube:
     def _download_video(self, video_id: str, output_path: str) -> None:
         """
         Downloads a video from youtube and converts it to a wav file
+        parameters
+        ----------
+        video_id: str
+            The id of the video to download
+        output_path: str
+            The path to save the video to
+
+        returns
+        -------
+        None
         """
         logger.info(f'Tarkibi _download_video: Downloading video: {video_id}')
         url = f'https://www.youtube.com/watch?v={video_id}'

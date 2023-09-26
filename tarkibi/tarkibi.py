@@ -37,6 +37,18 @@ class Tarkibi:
         tarkibi.utilities.general.make_directories([self._BASE_DIR, self._AUDIO_RAW_PATH, self._AUDIO_SPECS_PATH, self._AUDIO_FINAL_PATH])
 
     def _convert_time_to_minutes(self, time_str: str) -> float:
+        """
+        Function to convert a time string to minutes
+        paramaters
+        ----------
+        time_str : str (required)
+            The time string to convert
+
+        returns
+        -------
+        float
+            The time in minutes
+        """
         parts = time_str.split(':')
 
         if len(parts) == 2:
@@ -50,7 +62,21 @@ class Tarkibi:
 
         return total_minutes
 
-    def _find_closest_combination(self, clips: dict, target_duration: timedelta) -> tuple | list:
+    def _find_closest_combination(self, clips: list[dict[str, str]], target_duration: timedelta) -> tuple | list:
+        """
+        Function to find the closest combination of audio clips to the target duration
+        paramaters
+        ----------
+        clips : list[dict[str, str]] (required)
+            A dictionary of the audio clips
+        target_duration : timedelta (required)
+            The target duration of the audio clips
+
+        returns
+        -------
+        tuple | list
+            The closest combination of audio clips to the target duration
+        """
         target_minutes = (target_duration.total_seconds() / 60) * self._DURATION_MULTIPLIER
         clips.sort(key=lambda x: self._convert_time_to_minutes(x['length']))
 
@@ -68,6 +94,23 @@ class Tarkibi:
         return closest_combination
 
     def _process_video(self, video_id: str, reference_path: str, debug_mode: bool = False) -> dict[str, list] | None:
+        """
+        Function to process a video
+        paramaters
+        ----------
+        video_id : str (required)
+            The id of the video to process
+        reference_path : str (required)
+            The path to the reference audio file to compare the audio clips to
+        debug_mode : bool (optional)
+            Whether to keep the raw audio files or not
+            Default is False
+
+        returns
+        -------
+        dict[str, list] | None
+            The audio groups
+        """
         logger.info(f"Tarkibi _process_video: Processing video {video_id}")
         # fix age restricted video download error
         try:
@@ -87,23 +130,59 @@ class Tarkibi:
         return audio_groups
     
     def _single_duration(self, audio_file: str) -> float:
+        """
+        Function to calculate the duration of a single audio file
+        paramaters
+        ----------
+        audio_file : str (required)
+            The path to the audio file
+
+        returns
+        -------
+        float
+            The duration of the audio file
+        """
         with wave.open(audio_file, 'rb') as wav_file:
             duration = wav_file.getnframes() / float(wav_file.getframerate())
         
         return duration
     
     def _total_duration(self, audio_directory: str) -> float:
+        """
+        Function to calculate the total duration of a directory of audio files
+        paramaters
+        ----------
+        audio_directory : str (required)
+            The path to the directory containing the audio files
+        
+        returns
+        -------
+        float
+            The total duration of the audio files
+        """
         total_duration = 0
         for filename in os.listdir(audio_directory):
             if filename.endswith(".wav"):
-                wav_file_path = os.path.join(audio_directory, filename)
-                with wave.open(wav_file_path, 'rb') as wav_file:
-                    duration = wav_file.getnframes() / float(wav_file.getframerate())
-                    total_duration += duration
+                total_duration += self._single_duration(f'{audio_directory}/{filename}')
 
         return total_duration
 
     def _join_audio_group_to_output(self, output_dir: str, audio_group: str, clips: list[str]) -> None:
+        """
+        Function to join a group of audio clips into one audio file
+        paramaters
+        ----------
+        output_dir : str (required)
+            The path to the output directory
+        audio_group : str (required)
+            The name of the audio group
+        clips : list[str] (required)
+            A list of the audio clips to join
+
+        returns
+        -------
+        None
+        """
         logger.info(f"Tarkibi _join_audio_group_to_output: Joining audio group {audio_group} to output")
         concat_file = f'{self._AUDIO_SPECS_PATH}/{audio_group}_concat.txt'
         with open(concat_file, 'w') as f:
@@ -115,6 +194,20 @@ class Tarkibi:
         subprocess.run(f'ffmpeg -f concat -safe 0 -i {concat_file} -ar {str(self._DEFAULT_SAMPLE_RATE)} {output_dir}/{audio_group}.wav', shell=True)
 
     def _split_audio_clips_to_dataset(self, output_path: str, audio_file: str) -> list[str]:
+        """
+        Function to split an audio file into clips and add the clips to the dataset
+        paramaters
+        ----------
+        output_path : str (required)
+            The path to the dataset
+        audio_file : str (required)
+            The path to the audio file to split
+
+        returns
+        -------
+        list[str]
+            A list of the audio clips added to the dataset
+        """
         logger.info(f"Tarkibi _split_audio_clips_to_dataset: Splitting audio file {audio_file} to dataset")
         total_duration = self._single_duration(audio_file)
 
@@ -150,6 +243,19 @@ class Tarkibi:
                 shutil.rmtree(item_path, ignore_errors=True)
         
     def _format_transcription_ljspeech(self, transcription_directory: str, dataset_path: str) -> None:
+        """
+        Function to format the transcription files to the LJSpeech format
+        paramaters
+        ----------
+        transcription_directory : str (required)
+            The path to the directory containing the transcription files
+        dataset_path : str (required)
+            The path to the dataset
+
+        returns
+        -------
+        None
+        """
         transcription_files = []
         for root, _, files in os.walk(transcription_directory):
             for filename in files:
@@ -174,6 +280,23 @@ class Tarkibi:
             self._transcription.transcribe_file(audio_file, output_name)
     
     def _collect_audio_clips(self, author: str, target_duration: timedelta, reference_audio: str | None = None) -> list[str]:
+        """
+        Function to collect audio clips for a particular person
+        paramaters
+        ----------
+        author : str (required)
+            The name of the person to collect audio clips for
+        target_duration : timedelta (required)
+            The target duration of the audio clips
+        reference_audio : str (optional)
+            The path to the reference audio file to compare the audio clips to
+            Default is None
+
+        returns
+        -------
+        list[str]
+            A list of the audio clips collected
+        """
         logger.info(f"Tarkibi _collect_audio_clips: Collecting audio clips for {author} with target duration {target_duration}")
         search_query = self._agent._generate_search_query(author)
         videos = self._youtube._search(search_query)
@@ -203,6 +326,21 @@ class Tarkibi:
             os.mkdir(wav_file_output_path)
     
     def _update_sample_rate(output_path: str, sample_rate: int, all_output_files: list[str]):
+        """
+        Function to update the sample rate of the dataset
+        paramaters
+        ----------
+        output_path : str (required)
+            The path to the dataset
+        sample_rate : int (required)
+            The sample rate to update to
+        all_output_files : list[str] (required)
+            A list of all the audio files in the dataset
+
+        returns
+        -------
+        None
+        """
         final_path = f'{output_path}/wavs'
         temp_path = f'{output_path}/wavs_temp'
         file_id = file.split("/")[-1]
@@ -218,6 +356,30 @@ class Tarkibi:
             
     def build_dataset(self, author: str, reference_audio: str, target_duration: timedelta, output_path: str = 'dataset', 
                       sample_rate: int = _DEFAULT_SAMPLE_RATE, with_transcription: bool = True) -> None:
+        """
+        Function to build an LJSpeech-like dataset for a particular person. Uses Youtube as the source for the audio clips.
+        paramaters
+        ----------
+        author : str (required)
+            The name of the person to build the dataset for
+        reference_audio : str (required)
+            The path to the reference audio file to compare the audio clips to
+        target_duration : timedelta (required)
+            The target duration of the dataset
+        output_path : str (optional)
+            The path to save the dataset to.
+            Default is 'dataset'
+        sample_rate : int (optional)
+            The sample rate of the dataset
+            Default is 16KHz
+        with_transcription : bool (optional)
+            Whether to transcribe the dataset or not
+            Default is True
+
+        returns
+        -------
+        None
+        """
         logger.info(f"Tarkibi _build_dataset: Building dataset for {author} with target duration {target_duration}")
         wav_file_output_path = f'{output_path}/wavs'  
         self._create_dataset_dirs(output_path, wav_file_output_path)
