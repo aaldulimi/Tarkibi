@@ -1,2 +1,1 @@
 from .tarkibi import Tarkibi
-
