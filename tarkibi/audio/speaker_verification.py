@@ -217,3 +217,33 @@ class _SpeakerVerification:
             return self._speaker_recognition(audio_directories, reference_audio)
 
         return self._most_common_audio(audio_directories)
+    
+    def _speaker_verify_file(
+        self, audio_file: str, reference_audio_file: str
+    ) -> bool:
+        logger.info(
+            f"Tarkibi _speaker_verification: Comparing audio file: {audio_file} to reference audio file: {reference_audio_file}"
+        )
+        speaker_model: nemo_asr.models.EncDecSpeakerLabelModel = (
+            nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(
+                self._NVIDIA_NEMO_MODEL
+            )
+        )
+
+        is_similar = speaker_model.verify_speakers(reference_audio_file, audio_file)
+
+        return is_similar
+
+    def _speaker_verify_dir(self, dir_path: str, reference_audio_file: str) -> list[str]:
+        audio_files = self._get_audio_files(dir_path)
+        similar_clips = []
+
+        for audio_file in audio_files:
+            is_similar = self._speaker_verify_file(audio_file, reference_audio_file)
+            if is_similar:
+                similar_clips.append(audio_file)
+
+        return similar_clips
+            
+
+

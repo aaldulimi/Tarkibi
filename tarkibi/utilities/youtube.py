@@ -4,6 +4,7 @@ import subprocess
 from pytube import YouTube
 from . import general
 from tarkibi.utilities._config import logger
+import os
 
 logger = logger.getChild(__name__)
 
@@ -71,7 +72,8 @@ class _Youtube:
 
         return results
 
-    def _download_video(self, video_id: str, output_path: str) -> None:
+    # Pytube currently has error with downloading videos
+    def _download_video(self, video_id: str, output_file_path: str) -> None:
         """
         Downloads a video from youtube and converts it to a wav file
         parameters
@@ -85,6 +87,7 @@ class _Youtube:
         -------
         None
         """
+        os.makedirs(self._DOWNLOADS_OUTPUT_PATH, exist_ok=True)
         logger.info(f"Tarkibi _download_video: Downloading video: {video_id}")
         url = f"https://www.youtube.com/watch?v={video_id}"
 
@@ -95,6 +98,26 @@ class _Youtube:
         audio_file.download(output_path=self._DOWNLOADS_OUTPUT_PATH, filename=file_name)
 
         subprocess.run(
-            f'ffmpeg -i "{self._DOWNLOADS_OUTPUT_PATH}/{file_name}" -ac 2 -f wav {output_path}/{video_id}.wav',
+            f'ffmpeg -i "{self._DOWNLOADS_OUTPUT_PATH}/{file_name}" -ac 2 -f wav {output_file_path}',
             shell=True,
         )
+
+        os.remove(f"{self._DOWNLOADS_OUTPUT_PATH}/{file_name}") 
+
+    def _download_video_dlc(self, video_id: str, output_dir: str) -> None:
+        """
+        Downloads a video from youtube and converts it to a wav file
+        parameters
+        ----------
+        video_id: str
+            The id of the video to download
+        output_path: str
+            The path to save the video to
+
+        returns
+        -------
+        None
+        """
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        youtube_dl_cmd = f'cd {output_dir} && youtube-dlc --extract-audio --audio-format wav --output "%(id)s.%(ext)s" {url}',
+        subprocess.run(youtube_dl_cmd, shell=True, check=True)

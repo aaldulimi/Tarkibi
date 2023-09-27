@@ -2,6 +2,10 @@
 pretrained_models
 dataset
 
+# ruff
+.ruff_*
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -18,6 +18,7 @@ nemo-toolkit = {extras = ["asr"], version = "^1.20.0"}
 librosa = "^0.10.1"
 ruff = "^0.0.291"
 black = "21.12b0"
+youtube-dlc = "^2020.11.11.post3"
 
 
 [build-system]

@@ -83,31 +83,15 @@ class _Diarization:
                 )
 
         return speakers
-
+    
     def _segment_audio_clips(
-        self, speakers: dict[str, typing.Any], file_path: str, audio_id: str
+        self, speakers: dict[str, typing.Any], audio_file_path: str, output_file_path: str
     ) -> str:
-        """
-        Segment audio clips
-        parameters
-        ----------
-        speakers: dict[str, typing.Any]
-            The speakers to segment
-        file_path: str
-            The path to the audio file to segment
-        audio_id: str
-            The id of the audio file to segment
-
-        returns
-        -------
-        str
-            The path to the segmented audio clips
-        """
         logger.info(f"Tarkibi _segment_audio_clips: Segmenting audio clips: {speakers}")
-        audio_clips_path = f"{self._AUDIO_CLIPS_PATH}/{audio_id}"
-        if not os.path.exists(audio_clips_path):
-            os.mkdir(audio_clips_path)
 
+        if not os.path.exists(output_file_path):
+            os.mkdir(output_file_path)
+        
         for speaker, info in speakers.items():
             segments = []
 
@@ -115,35 +99,22 @@ class _Diarization:
                 segment_start = segment["start"] * 1000
                 segment_end = segment["end"] * 1000
 
-                audio = AudioSegment.from_wav(file_path)
+                audio = AudioSegment.from_wav(audio_file_path)
                 segment_audio = audio[segment_start:segment_end]
 
                 segments.append(segment_audio)
 
             concatenated_audio = sum(segments)
-            output_file = f"{audio_clips_path}/{speaker}.wav"
+            output_file = f"{output_file_path}/{speaker}.wav"
             concatenated_audio.export(output_file, format="wav")
 
-        return audio_clips_path
+        return output_file_path
+    
+    def _diarize_audio_file(self, audio_file_path: str, output_file_path: str) -> str:
+        logger.info(f"Tarkibi _diarize_audio: Diarizing audio file: {audio_file_path}")
 
-    def _diarize_audio(self, file_path: str, audio_id: str) -> str:
-        """
-        Diarize an audio file
-        parameters
-        ----------
-        file_path: str
-            The path to the audio file to diarize
-        audio_id: str
-            The id of the audio file to diarize
-
-        returns
-        -------
-        str
-            The path to the diarized audio file
-        """
-        logger.info(f"Tarkibi _diarize_audio: Diarizing audio file: {file_path}")
-        segments = self._diarize_audio_to_segments(file_path)
+        segments = self._diarize_audio_to_segments(audio_file_path)
         speakers = self._group_segments_by_speaker(segments)
-        audio_clips_path = self._segment_audio_clips(speakers, file_path, audio_id)
+        audio_clips_path = self._segment_audio_clips(speakers, audio_file_path, output_file_path)
 
         return audio_clips_path

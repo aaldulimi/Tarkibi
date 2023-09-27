@@ -11,7 +11,7 @@ class _NoiseReduction:
     def __init__(self) -> None:
         tarkibi.utilities.general.make_directories([self._NR_OUTPUT_PATH])
 
-    def _noise_reduction(self, file_path: str = None) -> str:
+    def _noise_reduction(self, audio_file_path: str, output_file_path: str) -> str:
         """
         Reduce the noise of an audio file
         parameters
@@ -19,9 +19,14 @@ class _NoiseReduction:
         file_path: str
             The path to the audio file to reduce the noise of
         """
-        logger.info(f"Tarkibi _noise_reduction: Noise reduction on file: {file_path}")
+        logger.info(f"Tarkibi _noise_reduction: Noise reduction on file: {audio_file_path}")
+
+        filename_without_extension = audio_file_path.split("/")[-1].split(".")[0] 
+
+        spleeter_cmd = f'spleeter separate -o {output_file_path} {audio_file_path}'
+        spleeter_cmd += ' -f {filename}_{instrument}.{codec}'
         subprocess.run(
-            f"spleeter separate -o {self._NR_OUTPUT_PATH} {file_path}", shell=True
+            spleeter_cmd, shell=True, check=True
         )
 
-        return self._NR_OUTPUT_PATH
+        return f'{output_file_path}/{filename_without_extension}_vocals.wav'

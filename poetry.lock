@@ -5354,7 +5354,19 @@ url = "https://github.com/LahiLuk/YouTokenToMe"
 reference = "HEAD"
 resolved_reference = "f9fe56e198e22d552d821a5f432d4e5ada1e81e8"
 
+[[package]]
+name = "youtube-dlc"
+version = "2020.11.11.post3"
+description = "Media downloader supporting various sites such as youtube"
+category = "main"
+optional = false
+python-versions = ">=2.6"
+files = [
+    {file = "youtube_dlc-2020.11.11.post3-py2.py3-none-any.whl", hash = "sha256:bbd4f554e9d63b6e8de7cbace0abd0b9707ed32798fbeb2abbb9c17fcb9f7ec3"},
+    {file = "youtube_dlc-2020.11.11.post3.tar.gz", hash = "sha256:5aaa0aa5fbd53d9acdfa95bab3c26802926eb27e425f23dc83d55cb18f11d053"},
+]
+
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.11"
-content-hash = "e9790880695a67da79b52328066dc82d4e07baefd4c374038f41f279583bfbac"
+content-hash = "5e0ae39c04d3ec8035cdf25abac08334fc75e0dff6ae3ba795e925e805dbb02a"

@@ -80,12 +80,12 @@ class _Transcription:
         )
         subprocess.run(make_model_cmd, shell=True)
 
-    def transcribe_file(self, audio_directory: str, output_name: str) -> None:
+    def transcribe_file(self, audio_file_path: str, output_name: str) -> None:
         """
         Transcribe a file
         parameters
         ----------
-        audio_directory: str
+        audio_path_file: str
             The directory to get the audio files from
         output_name: str
             The name of the output file
@@ -104,5 +104,19 @@ class _Transcription:
         args = self._WHISPER_ARGS + [f"-of ../../dataset/{output_name}"]
         args_text = " ".join(args)
 
-        transcription_cmd = f"cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args_text} ../../{audio_directory}"
+        transcription_cmd = f"cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args_text} ../../{audio_file_path}"
+        subprocess.run(transcription_cmd, shell=True)
+
+    def transcribe_file_v2(self, audio_file_path: str, output_path: str):
+        if not self._check_whisper_cpp_exists():
+            self._clone_whisper_cpp()
+            self._download_and_make_whisper_cpp_model()
+
+        elif not self._check_whisper_cpp_model_exists():
+            self._download_and_make_whisper_cpp_model()
+
+        args = self._WHISPER_ARGS + [f"-of ../../{audio_file_path}"]
+        args_text = " ".join(args)
+
+        transcription_cmd = f"cd .tarkibi/whisper.cpp/ && ./main -m models/ggml-{self.model}.bin {args_text} ../../{output_path}"
         subprocess.run(transcription_cmd, shell=True)
