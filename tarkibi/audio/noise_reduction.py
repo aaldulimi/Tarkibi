@@ -19,14 +19,14 @@ class _NoiseReduction:
         file_path: str
             The path to the audio file to reduce the noise of
         """
-        logger.info(f"Tarkibi _noise_reduction: Noise reduction on file: {audio_file_path}")
-
-        filename_without_extension = audio_file_path.split("/")[-1].split(".")[0] 
-
-        spleeter_cmd = f'spleeter separate -o {output_file_path} {audio_file_path}'
-        spleeter_cmd += ' -f {filename}_{instrument}.{codec}'
-        subprocess.run(
-            spleeter_cmd, shell=True, check=True
+        logger.info(
+            f"Tarkibi _noise_reduction: Noise reduction on file: {audio_file_path}"
         )
 
-        return f'{output_file_path}/{filename_without_extension}_vocals.wav'
+        filename_without_extension = audio_file_path.split("/")[-1].split(".")[0]
+
+        spleeter_cmd = f"spleeter separate -o {output_file_path} {audio_file_path}"
+        spleeter_cmd += " -f {filename}_{instrument}.{codec}"
+        subprocess.run(spleeter_cmd, shell=True, check=True)
+
+        return f"{output_file_path}/{filename_without_extension}_vocals.wav"

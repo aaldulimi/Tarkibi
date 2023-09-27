@@ -119,8 +119,12 @@ class Tarkibi:
         return closest_combination
 
     def _process_video(
-        self, video_id: str, reference_path: str, wav_output_dir: str, debug_mode: bool = False
-    ) -> list| None:
+        self,
+        video_id: str,
+        reference_path: str,
+        wav_output_dir: str,
+        debug_mode: bool = False,
+    ) -> list | None:
         """
         Function to process a video
         paramaters
@@ -150,13 +154,13 @@ class Tarkibi:
             return
 
         nr_output_path = self._noise_reduction._noise_reduction(
-            wav_file, self._AUDIO_NN_PATH 
+            wav_file, self._AUDIO_NN_PATH
         )
 
         ac_output_path = self._diarization._diarize_audio_file(
-            nr_output_path, f'{self._AUDIO_CLIPS_PATH}/{video_id}'
+            nr_output_path, f"{self._AUDIO_CLIPS_PATH}/{video_id}"
         )
-        
+
         similar_clips = self._speaker_verification._speaker_verify_dir(
             ac_output_path, reference_path
         )
@@ -315,7 +319,7 @@ class Tarkibi:
         author: str,
         target_duration: timedelta,
         reference_audio: str,
-        wav_output_dir: str
+        wav_output_dir: str,
     ) -> list[str]:
         """
         Function to collect audio clips for a particular person
@@ -348,7 +352,6 @@ class Tarkibi:
         for video in closest_combination:
             self._clips_used.append(video["id"])
             self._process_video(video["id"], reference_audio, wav_output_dir)
-
 
     def _create_dataset_dirs(self, output_path: str, wav_file_output_path: str) -> None:
         if not os.path.exists(output_path):
@@ -437,7 +440,7 @@ class Tarkibi:
             self._collect_audio_clips(
                 author, target_duration, reference_audio, wav_file_output_path
             )
-            
+
             remaining_duration = target_duration.total_seconds() - self._total_duration(
                 wav_file_output_path
             )

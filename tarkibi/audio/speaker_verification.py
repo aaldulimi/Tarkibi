@@ -217,10 +217,8 @@ class _SpeakerVerification:
             return self._speaker_recognition(audio_directories, reference_audio)
 
         return self._most_common_audio(audio_directories)
-    
-    def _speaker_verify_file(
-        self, audio_file: str, reference_audio_file: str
-    ) -> bool:
+
+    def _speaker_verify_file(self, audio_file: str, reference_audio_file: str) -> bool:
         """
         Verify if an audio file is similar to a reference audio file
         parameters
@@ -229,7 +227,7 @@ class _SpeakerVerification:
             The audio file to verify
         reference_audio_file: str
             The reference audio file to compare the audio file to
-        
+
         returns
         -------
         bool
@@ -248,7 +246,9 @@ class _SpeakerVerification:
 
         return is_similar
 
-    def _speaker_verify_dir(self, dir_path: str, reference_audio_file: str) -> list[str]:
+    def _speaker_verify_dir(
+        self, dir_path: str, reference_audio_file: str
+    ) -> list[str]:
         """
         Verify if audio files in a directory are similar to a reference audio file
         parameters
@@ -257,7 +257,7 @@ class _SpeakerVerification:
             The directory to verify
         reference_audio_file: str
             The reference audio file to compare the audio files to
-        
+
         returns
         -------
         list[str]
@@ -273,6 +273,3 @@ class _SpeakerVerification:
                 similar_clips.append(audio_file)
 
         return similar_clips
-            
-
-

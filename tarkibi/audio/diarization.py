@@ -83,9 +83,12 @@ class _Diarization:
                 )
 
         return speakers
-    
+
     def _segment_audio_clips(
-        self, speakers: dict[str, typing.Any], audio_file_path: str, output_file_path: str
+        self,
+        speakers: dict[str, typing.Any],
+        audio_file_path: str,
+        output_file_path: str,
     ) -> str:
         """
         Segment audio clips together to form a single audio clip for each speaker
@@ -97,7 +100,7 @@ class _Diarization:
             The path to the audio file to segment
         output_file_path: str
             The path to the output directory
-        
+
         returns
         -------
         str
@@ -107,7 +110,7 @@ class _Diarization:
 
         if not os.path.exists(output_file_path):
             os.mkdir(output_file_path)
-        
+
         for speaker, info in speakers.items():
             segments = []
 
@@ -125,7 +128,7 @@ class _Diarization:
             concatenated_audio.export(output_file, format="wav")
 
         return output_file_path
-    
+
     def _diarize_audio_file(self, audio_file_path: str, output_file_path: str) -> str:
         """
         Diarize an audio file
@@ -135,7 +138,7 @@ class _Diarization:
             The path to the audio file to diarize
         output_file_path: str
             The path to the output directory
-        
+
         returns
         -------
         str
@@ -145,6 +148,8 @@ class _Diarization:
 
         segments = self._diarize_audio_to_segments(audio_file_path)
         speakers = self._group_segments_by_speaker(segments)
-        audio_clips_path = self._segment_audio_clips(speakers, audio_file_path, output_file_path)
+        audio_clips_path = self._segment_audio_clips(
+            speakers, audio_file_path, output_file_path
+        )
 
         return audio_clips_path

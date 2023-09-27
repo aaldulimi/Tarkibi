@@ -102,7 +102,7 @@ class _Youtube:
             shell=True,
         )
 
-        os.remove(f"{self._DOWNLOADS_OUTPUT_PATH}/{file_name}") 
+        os.remove(f"{self._DOWNLOADS_OUTPUT_PATH}/{file_name}")
 
     def _download_video_dlc(self, video_id: str, output_dir: str) -> None:
         """
@@ -119,5 +119,7 @@ class _Youtube:
         None
         """
         url = f"https://www.youtube.com/watch?v={video_id}"
-        youtube_dl_cmd = f'cd {output_dir} && youtube-dlc --extract-audio --audio-format wav --output "%(id)s.%(ext)s" {url}',
+        youtube_dl_cmd = (
+            f'cd {output_dir} && youtube-dlc --extract-audio --audio-format wav --output "%(id)s.%(ext)s" {url}',
+        )
         subprocess.run(youtube_dl_cmd, shell=True, check=True)
