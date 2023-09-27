@@ -108,6 +108,19 @@ class _Transcription:
         subprocess.run(transcription_cmd, shell=True)
 
     def transcribe_file_v2(self, audio_file_path: str, output_path: str):
+        """
+        Transcribe a file
+        parameters
+        ----------
+        audio_path_file: str
+            The directory to get the audio files from
+        output_name: str
+            The name of the output file
+
+        returns
+        -------
+        None
+        """
         if not self._check_whisper_cpp_exists():
             self._clone_whisper_cpp()
             self._download_and_make_whisper_cpp_model()

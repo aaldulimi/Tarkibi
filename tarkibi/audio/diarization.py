@@ -87,6 +87,22 @@ class _Diarization:
     def _segment_audio_clips(
         self, speakers: dict[str, typing.Any], audio_file_path: str, output_file_path: str
     ) -> str:
+        """
+        Segment audio clips together to form a single audio clip for each speaker
+        parameters
+        ----------
+        speakers: dict[str, typing.Any]
+            The speakers to segment
+        audio_file_path: str
+            The path to the audio file to segment
+        output_file_path: str
+            The path to the output directory
+        
+        returns
+        -------
+        str
+            The path to the output directory
+        """
         logger.info(f"Tarkibi _segment_audio_clips: Segmenting audio clips: {speakers}")
 
         if not os.path.exists(output_file_path):
@@ -111,6 +127,20 @@ class _Diarization:
         return output_file_path
     
     def _diarize_audio_file(self, audio_file_path: str, output_file_path: str) -> str:
+        """
+        Diarize an audio file
+        parameters
+        ----------
+        audio_file_path: str
+            The path to the audio file to diarize
+        output_file_path: str
+            The path to the output directory
+        
+        returns
+        -------
+        str
+            The path to the output directory
+        """
         logger.info(f"Tarkibi _diarize_audio: Diarizing audio file: {audio_file_path}")
 
         segments = self._diarize_audio_to_segments(audio_file_path)

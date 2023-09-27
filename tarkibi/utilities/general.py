@@ -2,7 +2,7 @@ import os
 
 BASE_DIR = ".tarkibi"
 
-
+# should be static method in Tarkibi class
 def make_directories(directories: list) -> None:
     for path in directories:
         dirs = path.split("/")

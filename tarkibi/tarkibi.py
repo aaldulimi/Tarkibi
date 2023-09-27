@@ -17,6 +17,9 @@ class Tarkibi:
     _AUDIO_RAW_PATH = f"{_BASE_DIR}/audio_raw"
     _AUDIO_SPECS_PATH = f"{_BASE_DIR}/audio_specs"
     _AUDIO_FINAL_PATH = f"{_BASE_DIR}/audio_final"
+    _AUDIO_NN_PATH = f"{_BASE_DIR}/audio_nn"
+    _AUDIO_CLIPS_PATH = f"{_BASE_DIR}/audio_clips"
+
     _DURATION_MULTIPLIER = 2.0
 
     _DEFAULT_SAMPLE_RATE = 16000
@@ -43,6 +46,8 @@ class Tarkibi:
                 self._AUDIO_RAW_PATH,
                 self._AUDIO_SPECS_PATH,
                 self._AUDIO_FINAL_PATH,
+                self._AUDIO_NN_PATH,
+                self._AUDIO_CLIPS_PATH,
             ]
         )
 
@@ -114,8 +119,8 @@ class Tarkibi:
         return closest_combination
 
     def _process_video(
-        self, video_id: str, reference_path: str, debug_mode: bool = False
-    ) -> dict[str, list] | None:
+        self, video_id: str, reference_path: str, wav_output_dir: str, debug_mode: bool = False
+    ) -> list| None:
         """
         Function to process a video
         paramaters
@@ -124,6 +129,8 @@ class Tarkibi:
             The id of the video to process
         reference_path : str (required)
             The path to the reference audio file to compare the audio clips to
+        wav_output_dir : str (required)
+            The path to save the audio clips to
         debug_mode : bool (optional)
             Whether to keep the raw audio files or not
             Default is False
@@ -134,28 +141,30 @@ class Tarkibi:
             The audio groups
         """
         logger.info(f"Tarkibi _process_video: Processing video {video_id}")
+        wav_file = f"{self._AUDIO_RAW_PATH}/{video_id}.wav"
         # fix age restricted video download error
         try:
-            self._youtube._download_video(video_id, output_path=self._AUDIO_RAW_PATH)
+            self._youtube._download_video_dlc(video_id, self._AUDIO_RAW_PATH)
         except Exception as e:
             logger.error(f"Error downloading video {video_id}: {e}")
             return
 
         nr_output_path = self._noise_reduction._noise_reduction(
-            f"{self._AUDIO_RAW_PATH}/{video_id}.wav"
+            wav_file, self._AUDIO_NN_PATH 
         )
-        ac_output_path = self._diarization._diarize_audio(
-            f"{nr_output_path}/{video_id}/vocals.wav", video_id
+
+        ac_output_path = self._diarization._diarize_audio_file(
+            nr_output_path, f'{self._AUDIO_CLIPS_PATH}/{video_id}'
         )
-        audio_groups = self._speaker_verification._speaker_recognition(
+        
+        similar_clips = self._speaker_verification._speaker_verify_dir(
             ac_output_path, reference_path
         )
 
-        if not debug_mode:
-            os.remove(f"{self._AUDIO_RAW_PATH}/{video_id}.wav")
-            shutil.rmtree(f"{nr_output_path}/{video_id}")
+        for clip_path in similar_clips:
+            self._split_audio_clips_to_dataset(wav_output_dir, clip_path)
 
-        return audio_groups
+        return similar_clips
 
     def _single_duration(self, audio_file: str) -> float:
         """
@@ -194,41 +203,6 @@ class Tarkibi:
                 total_duration += self._single_duration(f"{audio_directory}/{filename}")
 
         return total_duration
-
-    def _join_audio_group_to_output(
-        self, output_dir: str, audio_group: str, clips: list[str]
-    ) -> None:
-        """
-        Function to join a group of audio clips into one audio file
-        paramaters
-        ----------
-        output_dir : str (required)
-            The path to the output directory
-        audio_group : str (required)
-            The name of the audio group
-        clips : list[str] (required)
-            A list of the audio clips to join
-
-        returns
-        -------
-        None
-        """
-        logger.info(
-            f"Tarkibi _join_audio_group_to_output: Joining audio group {audio_group} to output"
-        )
-        concat_file = f"{self._AUDIO_SPECS_PATH}/{audio_group}_concat.txt"
-        with open(concat_file, "w") as f:
-            sorted_clips = sorted(
-                clips, key=lambda x: int(x.split("/")[-1].split(".")[0])
-            )
-
-            for clip in sorted_clips:
-                f.write(f"file ../../{clip}\n")
-
-        subprocess.run(
-            f"ffmpeg -f concat -safe 0 -i {concat_file} -ar {str(self._DEFAULT_SAMPLE_RATE)} {output_dir}/{audio_group}.wav",
-            shell=True,
-        )
 
     def _split_audio_clips_to_dataset(
         self, output_path: str, audio_file: str
@@ -271,8 +245,10 @@ class Tarkibi:
                     audio_file,
                     "-t",
                     str(clip_duration),
+                    "-ar",
+                    str(self._DEFAULT_SAMPLE_RATE),
                     "-c:a",
-                    "copy",
+                    "pcm_s16le",
                     output_file,
                 ],
                 capture_output=True,
@@ -338,7 +314,8 @@ class Tarkibi:
         self,
         author: str,
         target_duration: timedelta,
-        reference_audio: str | None = None,
+        reference_audio: str,
+        wav_output_dir: str
     ) -> list[str]:
         """
         Function to collect audio clips for a particular person
@@ -348,9 +325,10 @@ class Tarkibi:
             The name of the person to collect audio clips for
         target_duration : timedelta (required)
             The target duration of the audio clips
-        reference_audio : str (optional)
+        reference_audio : str (required)
             The path to the reference audio file to compare the audio clips to
-            Default is None
+        wav_output_dir : str (required)
+            The path to save the audio clips to
 
         returns
         -------
@@ -366,19 +344,11 @@ class Tarkibi:
         if self._clips_used:
             videos = [video for video in videos if video["id"] not in self._clips_used]
 
-        audio_groups: dict[str, list] = {}
         closest_combination = self._find_closest_combination(videos, target_duration)
         for video in closest_combination:
             self._clips_used.append(video["id"])
-            audio_groups.update(self._process_video(video["id"], reference_audio))
+            self._process_video(video["id"], reference_audio, wav_output_dir)
 
-        output_files = []
-        for audio_group, clips in audio_groups.items():
-            self._join_audio_group_to_output(self._AUDIO_FINAL_PATH, audio_group, clips)
-            output_files.append(f"{self._AUDIO_FINAL_PATH}/{audio_group}.wav")
-
-        logger.info(f"Tarkibi _collect_audio_clips: Output files: {output_files}")
-        return output_files
 
     def _create_dataset_dirs(self, output_path: str, wav_file_output_path: str) -> None:
         if not os.path.exists(output_path):
@@ -388,7 +358,7 @@ class Tarkibi:
             os.mkdir(wav_file_output_path)
 
     def _update_sample_rate(
-        output_path: str, sample_rate: int, all_output_files: list[str]
+        self, output_path: str, sample_rate: int, all_output_files: list[str]
     ):
         """
         Function to update the sample rate of the dataset
@@ -407,10 +377,10 @@ class Tarkibi:
         """
         final_path = f"{output_path}/wavs"
         temp_path = f"{output_path}/wavs_temp"
-        file_id = file.split("/")[-1]
 
         os.makedirs(temp_path)
         for file in all_output_files:
+            file_id = file.split("/")[-1]
             subprocess.run(
                 f"ffmpeg -i {file} -ar {str(sample_rate)} {temp_path}/{file_id}",
                 shell=True,
@@ -445,7 +415,7 @@ class Tarkibi:
             Default is 'dataset'
         sample_rate : int (optional)
             The sample rate of the dataset
-            Default is 16KHz
+            Default is 16000 (i.e. 16kHz)
         with_transcription : bool (optional)
             Whether to transcribe the dataset or not
             Default is True
@@ -464,12 +434,10 @@ class Tarkibi:
             wav_file_output_path
         )
         while remaining_duration > (0.2 * target_duration.total_seconds()):
-            joined_final_paths = self._collect_audio_clips(
-                author, target_duration, reference_audio
+            self._collect_audio_clips(
+                author, target_duration, reference_audio, wav_file_output_path
             )
-            for final_path in joined_final_paths:
-                self._split_audio_clips_to_dataset(wav_file_output_path, final_path)
-
+            
             remaining_duration = target_duration.total_seconds() - self._total_duration(
                 wav_file_output_path
             )
@@ -479,6 +447,7 @@ class Tarkibi:
             for file in os.listdir(wav_file_output_path)
             if file.endswith(".wav")
         ]
+
         if with_transcription:
             self._transcribe_files(all_output_files)
             self._format_transcription_ljspeech(output_path, output_path)

@@ -221,6 +221,20 @@ class _SpeakerVerification:
     def _speaker_verify_file(
         self, audio_file: str, reference_audio_file: str
     ) -> bool:
+        """
+        Verify if an audio file is similar to a reference audio file
+        parameters
+        ----------
+        audio_file: str
+            The audio file to verify
+        reference_audio_file: str
+            The reference audio file to compare the audio file to
+        
+        returns
+        -------
+        bool
+            True if the audio file is similar to the reference audio file, False otherwise
+        """
         logger.info(
             f"Tarkibi _speaker_verification: Comparing audio file: {audio_file} to reference audio file: {reference_audio_file}"
         )
@@ -235,10 +249,25 @@ class _SpeakerVerification:
         return is_similar
 
     def _speaker_verify_dir(self, dir_path: str, reference_audio_file: str) -> list[str]:
+        """
+        Verify if audio files in a directory are similar to a reference audio file
+        parameters
+        ----------
+        dir_path: str
+            The directory to verify
+        reference_audio_file: str
+            The reference audio file to compare the audio files to
+        
+        returns
+        -------
+        list[str]
+            A list of audio files that are similar to the reference audio file
+        """
         audio_files = self._get_audio_files(dir_path)
         similar_clips = []
 
         for audio_file in audio_files:
+            # could be bad practice to constantly load model in memory and then out of memory for each file
             is_similar = self._speaker_verify_file(audio_file, reference_audio_file)
             if is_similar:
                 similar_clips.append(audio_file)
